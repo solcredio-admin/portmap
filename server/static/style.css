@@ -10,9 +10,12 @@
   --ink: #0b0c0a;
   --muted: #5f625b;
   --line: rgba(11, 12, 10, .12);
-  --glass: rgba(250, 248, 242, .62);
-  --glass-strong: rgba(250, 248, 242, .9);
-  --panel: rgba(12, 13, 11, .9);
+  --glass: rgba(250, 248, 242, .42);
+  --glass-strong: rgba(250, 248, 242, .74);
+  --panel: rgba(12, 13, 11, .84);
+  --rim: rgba(255, 255, 255, .75);       /* liquid-glass edge light (top) */
+  --rim-soft: rgba(255, 255, 255, .22);  /* and its faint return (bottom) */
+  --sheen: rgba(255, 255, 255, .30);
   --panel-line: #2a2c27;
   --key: #c6f36b;        /* exposed */
   --key-ink: #0b0f05;
@@ -32,16 +35,18 @@
 @media (prefers-color-scheme: dark) {
   :root:not([data-theme="light"]) {
     --bg: #050607; --ink: #f1f2ee; --muted: #8d9188; --line: rgba(241, 242, 238, .12);
-    --glass: rgba(8, 9, 10, .55); --glass-strong: rgba(12, 13, 14, .9);
-    --panel: rgba(4, 5, 6, .82); --panel-line: #24262a; --free: var(--key); --warn: #ff6a45;
+    --glass: rgba(10, 11, 12, .34); --glass-strong: rgba(14, 15, 16, .72);
+    --panel: rgba(4, 5, 6, .72);
+    --rim: rgba(255, 255, 255, .24); --rim-soft: rgba(255, 255, 255, .06); --sheen: rgba(255, 255, 255, .07); --panel-line: #24262a; --free: var(--key); --warn: #ff6a45;
     --field: radial-gradient(60% 70% at 18% 20%, #2c4207 0%, transparent 70%),
              radial-gradient(55% 60% at 85% 75%, #182452 0%, transparent 70%), #050607;
   }
 }
 :root[data-theme="dark"] {
   --bg: #050607; --ink: #f1f2ee; --muted: #8d9188; --line: rgba(241, 242, 238, .12);
-  --glass: rgba(8, 9, 10, .55); --glass-strong: rgba(12, 13, 14, .9);
-  --panel: rgba(4, 5, 6, .82); --panel-line: #24262a; --free: var(--key); --warn: #ff6a45;
+  --glass: rgba(10, 11, 12, .34); --glass-strong: rgba(14, 15, 16, .72);
+  --panel: rgba(4, 5, 6, .72);
+  --rim: rgba(255, 255, 255, .24); --rim-soft: rgba(255, 255, 255, .06); --sheen: rgba(255, 255, 255, .07); --panel-line: #24262a; --free: var(--key); --warn: #ff6a45;
   --field: radial-gradient(60% 70% at 18% 20%, #2c4207 0%, transparent 70%),
            radial-gradient(55% 60% at 85% 75%, #182452 0%, transparent 70%), #050607;
 }
@@ -310,3 +315,24 @@ body.reveal .host:nth-child(n+4) { animation-delay: .24s; }
 @media (prefers-reduced-motion: reduce) {
   *, *::before, *::after { animation: none !important; transition: none !important; }
 }
+
+/* ---------- liquid glass, lightly ----------
+   The look of github.com/dashersw/liquid-glass-js (MIT): a bright rim on the top
+   edge, a faint return along the bottom, a diagonal sheen over a thin tint. Done in
+   CSS rather than with the library's html2canvas + per-element WebGL refraction,
+   which would re-snapshot the page on every refresh and keep the GPU busy. */
+.bar, .answer, .host, .ticket, .setup, .login form {
+  background-image: linear-gradient(135deg, var(--sheen) 0%, transparent 38%, transparent 70%, var(--rim-soft) 100%);
+  border-color: var(--rim-soft);
+  box-shadow:
+    inset 0 1px 0 var(--rim),            /* top edge catches the light */
+    inset 0 -1px 0 var(--rim-soft),      /* soft return at the bottom */
+    inset 1px 0 0 var(--rim-soft), inset -1px 0 0 var(--rim-soft),
+    0 18px 40px -22px rgba(0, 0, 0, .45);
+}
+/* Small floating pieces get the frosted blur; big sheets stay clear so scrolling stays cheap. */
+.answer { backdrop-filter: blur(10px) saturate(1.4); -webkit-backdrop-filter: blur(10px) saturate(1.4); }
+.ticket, .setup { backdrop-filter: blur(22px) saturate(1.5); -webkit-backdrop-filter: blur(22px) saturate(1.5); }
+.ticket { box-shadow: inset 0 1px 0 var(--rim), inset 0 -1px 0 var(--rim-soft), 0 24px 60px -20px rgba(0, 0, 0, .5); }
+/* The keycap slab: a hair translucent, with its own thin rim. */
+.panel { box-shadow: inset 0 1px 0 rgba(255, 255, 255, .09), 0 30px 60px -30px rgba(0, 0, 0, .45); }
