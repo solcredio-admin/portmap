@@ -27,54 +27,82 @@ Both are built for `linux/amd64` and `linux/arm64`. Tags: `latest`, the short co
 
 ---
 
-## 1. Deploy the dashboard (main server)
+## 1. Dashboard (main server)
 
-Requires Docker with the Compose plugin.
+Save this as `docker-compose.yml`, change the three `CHANGE-ME` values, then run `docker compose up -d`.
 
-```bash
-git clone https://github.com/solcredio-admin/portmap.git && cd portmap
-cp .env.example .env
+```yaml
+services:
+  portmap:
+    image: ghcr.io/solcredio-admin/portmap-server:latest
+    container_name: portmap
+    restart: unless-stopped
+    ports:
+      - "127.0.0.1:8080:8080"          # use your Tailscale/LAN IP instead of 127.0.0.1 to reach it from other machines
+    environment:
+      ADMIN_USER: admin
+      ADMIN_PASSWORD: CHANGE-ME        # 12+ characters
+      AGENT_TOKEN: CHANGE-ME           # openssl rand -hex 32
+      COOKIE_SECURE: "0"               # "1" when served over HTTPS
+    volumes:
+      - portmap-data:/data
+    cap_drop: [ALL]
+    security_opt: [no-new-privileges:true]
+    read_only: true
+    tmpfs: [/tmp]
+
+  portmap-agent:                       # reports this server's own ports
+    image: ghcr.io/solcredio-admin/portmap-agent:latest
+    container_name: portmap-agent
+    restart: unless-stopped
+    network_mode: host
+    pid: host
+    cap_drop: [ALL]
+    cap_add: [SYS_PTRACE, DAC_READ_SEARCH]
+    security_opt: [no-new-privileges:true, apparmor:unconfined]
+    read_only: true
+    environment:
+      SERVER_URL: http://127.0.0.1:8080  # match the address in "ports" above
+      AGENT_TOKEN: CHANGE-ME             # same as above
+    volumes:
+      - /var/run/docker.sock:/var/run/docker.sock:ro
+      - /etc/os-release:/host/os-release:ro
+    depends_on: [portmap]
+
+volumes:
+  portmap-data:
 ```
 
-Edit `.env`:
-
-| Variable | What to put |
-|---|---|
-| `ADMIN_USER` | login username (default `admin`) |
-| `ADMIN_PASSWORD` | login password, **12+ characters** |
-| `AGENT_TOKEN` | shared secret for agents: `openssl rand -hex 32` |
-| `BIND_ADDR` | address the dashboard listens on: `127.0.0.1`, your Tailscale/LAN IP, or `0.0.0.0` behind a TLS proxy |
-| `PORTMAP_PORT` | host port for the dashboard (default `8080`) |
-| `COOKIE_SECURE` | `1` when you serve it over HTTPS |
-| `TRUST_PROXY` | `1` only behind a reverse proxy that sets `X-Forwarded-For` |
-
-Then:
-
-```bash
-docker compose up -d
-```
-
-Open `http://<BIND_ADDR>:<PORTMAP_PORT>` and sign in. This compose file also starts an agent for the server itself, so its card shows up within 15 seconds.
-
-To update: `docker compose pull && docker compose up -d`.
+Open `http://127.0.0.1:8080` (or the IP you bound to) and sign in. Update with `docker compose pull && docker compose up -d`.
 
 ---
 
-## 2. Add another Linux machine (agent)
+## 2. Agent (every other Linux machine)
 
-You only need one file: [`agent/docker-compose.yml`](agent/docker-compose.yml).
+Save this as `docker-compose.yml` on the machine, change the two `CHANGE-ME` values, then run `docker compose up -d`.
 
-```bash
-mkdir portmap-agent && cd portmap-agent
-curl -fsSLO https://raw.githubusercontent.com/solcredio-admin/portmap/main/agent/docker-compose.yml
-printf 'SERVER_URL=http://<server-ip>:8080\nAGENT_TOKEN=<same token as the server>\n' > .env
-chmod 600 .env
-docker compose up -d
+```yaml
+services:
+  portmap-agent:
+    image: ghcr.io/solcredio-admin/portmap-agent:latest
+    container_name: portmap-agent
+    restart: unless-stopped
+    network_mode: host      # see the host's sockets
+    pid: host               # see the host's processes
+    cap_drop: [ALL]
+    cap_add: [SYS_PTRACE, DAC_READ_SEARCH]
+    security_opt: [no-new-privileges:true, apparmor:unconfined]
+    read_only: true
+    environment:
+      SERVER_URL: http://CHANGE-ME:8080   # the dashboard's address
+      AGENT_TOKEN: CHANGE-ME              # same token as the dashboard
+      HOST_NAME: ""                       # optional; defaults to the machine's hostname
+    volumes:
+      - /var/run/docker.sock:/var/run/docker.sock:ro   # optional: shows container names
+      - /etc/os-release:/host/os-release:ro
 ```
 
-The machine appears on the dashboard under its hostname. Set `HOST_NAME=` in `.env` to override it.
-
-No `.env` file possible (e.g. a UI that takes pasted compose YAML)? Replace the two `CHANGE-ME` values in the file directly.
+The machine shows up on the dashboard within 15 seconds.
 
 ---
 
@@ -93,14 +121,3 @@ No `.env` file possible (e.g. a UI that takes pasted compose YAML)? Replace the 
 - Machines that stop reporting fade out after 60 seconds. They stay listed until the server's data volume is cleared.
 - Ports that Docker publishes through iptables only (`userland-proxy: false`) are still detected through the Docker API.
 - If an auto-updater (WUD, Watchtower, Tugtainer) manages your hosts, it will update the agent image like any other container.
-
-## Development
-
-```bash
-# server, no Docker
-cd server && ADMIN_PASSWORD=devpassword12 AGENT_TOKEN=$(openssl rand -hex 16) DATA_FILE=/tmp/pm.json python3 server.py
-# agent: print what it sees on this machine (Linux)
-python3 agent/agent.py --once
-# build images locally
-docker compose build
-```
