@@ -8,12 +8,12 @@
 </head>
 <body>
 <div class="login">
+  <header class="bar"><span></span><span class="cap">Portmap</span><span></span></header>
   <form method="post" action="/login" autocomplete="on">
-    <div class="mark">port<i>map</i></div>
-    <p>Every listening port, every machine, one sheet.</p>
-    <label>Username <input name="username" autocomplete="username" required autofocus></label>
-    <label>Password <input name="password" type="password" autocomplete="current-password" required></label>
-    <div class="err" role="alert">{{ERR}}</div>
+    <h1>Every listening port, on every machine, at a glance.</h1>
+    <label class="cap">Username <input name="username" autocomplete="username" required autofocus></label>
+    <label class="cap">Password <input name="password" type="password" autocomplete="current-password" required></label>
+    <div class="cap err" role="alert">{{ERR}}</div>
     <button type="submit">Sign in</button>
   </form>
 </div>

@@ -7,17 +7,15 @@
 <link rel="stylesheet" href="/style.css">
 </head>
 <body>
-<header class="rail">
-  <div class="mark">port<i>map</i></div>
-  <div class="tally" id="tally">loading…</div>
-  <div class="probe">
-    <label for="probe">Probe</label>
-    <input id="probe" inputmode="numeric" maxlength="5" placeholder="8080" autocomplete="off">
-    <span class="probe-out" id="probe-out">type a port to check every host</span>
-  </div>
-  <label class="chk"><input type="checkbox" id="hide-local"> hide loopback</label>
-  <form method="post" action="/logout"><button class="out" type="submit">sign out</button></form>
+<header class="bar">
+  <button class="plain plus" id="hide-local" type="button" aria-pressed="false" title="Hide loopback-only ports">+</button>
+  <span class="cap">Portmap</span>
+  <form class="out" method="post" action="/logout"><button class="plain" type="submit">Sign out</button></form>
 </header>
+<section class="hero">
+  <h1>Is port <input id="probe" inputmode="numeric" maxlength="5" placeholder="0000" autocomplete="off" aria-label="Port to check"> free on <span id="host-count">your machines</span>?</h1>
+  <div class="cap answer" id="probe-out">Loading…</div>
+</section>
 <main id="cards"></main>
 <div class="ticket" id="ticket" hidden role="tooltip"></div>
 <script src="/app.js"></script>

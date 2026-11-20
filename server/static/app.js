@@ -4,7 +4,6 @@ const STALE_AFTER = 60;
 let data = { now: 0, hosts: [] };
 let hideLocal = false;
 try { hideLocal = localStorage.getItem("pm-hide-local") === "1"; } catch {}
-$("hide-local").checked = hideLocal;
 
 function el(tag, cls, text) {
   const e = document.createElement(tag);
@@ -50,101 +49,100 @@ function probePort() {
   return n >= 1 && n <= 65535 ? n : null;
 }
 
+function tick(seg, pct, cls) {
+  const t = el("span", cls);
+  t.style.left = `${pct}%`;
+  seg.append(t);
+}
+
 function render() {
   hideTicket();
   const probe = probePort();
   const root = $("cards");
   root.replaceChildren();
   const hosts = [...data.hosts].sort((a, b) => a.host.localeCompare(b.host));
-  let used = 0;
+  $("host-count").textContent = hosts.length === 1 ? hosts[0].host : `${hosts.length || "your"} machines`;
+  $("hide-local").setAttribute("aria-pressed", String(hideLocal));
 
-  if (!hosts.length) {
-    root.append(el("div", "empty", "No agents have reported yet."));
-  }
+  if (!hosts.length) root.append(el("div", "cap empty", "No agents have reported yet."));
 
   for (const h of hosts) {
     const age = data.now - h.seen;
     const ports = h.ports.filter((p) => !hideLocal || p.exposed);
-    used += h.ports.length;
+    const host = el("section", "host" + (age > STALE_AFTER ? " stale" : ""));
 
-    const card = el("section", "card" + (age > STALE_AFTER ? " stale" : ""));
-    const head = el("div", "head");
+    const head = el("div", "host-head");
+    head.append(el("div", "cap",
+      `${h.os || "linux"} · ${uptime(h.uptime)} · ${h.ports.filter((p) => p.exposed).length} exposed / ${h.ports.length} bound · ${ago(age)}`));
     head.append(el("h2", null, h.host));
-    const meta = el("span", "meta");
-    meta.append(el("span", "pulse"));
-    meta.append(`${h.ports.filter((p) => p.exposed).length} exposed · ${h.ports.length} total · ${h.os || "linux"} · ${uptime(h.uptime)} · seen ${ago(age)}`);
-    head.append(meta);
-
     if (probe) {
       const hit = h.ports.filter((p) => p.port === probe);
-      const s = el("span", "stamp " + (hit.length ? "taken" : "free"),
-        hit.length ? `${probe} taken · ${label(hit[0])}` : `${probe} free`);
-      head.append(s);
+      head.append(el("span", "pill " + (hit.length ? "taken" : "free"),
+        hit.length ? `${probe} taken by ${label(hit[0])}` : `${probe} is free`));
     }
-    card.append(head);
+    host.append(head);
 
+    const panel = el("div", "panel");
     const strip = el("div", "strip");
     const segs = [0, 1, 2].map(() => el("div", "seg"));
     for (const p of ports) {
       const [i, pct] = where(p.port);
-      const t = el("span", p.port === probe ? "hit" : p.exposed ? "" : "local");
-      t.style.left = `calc(${pct}% - 1px)`;
-      segs[i].append(t);
+      tick(segs[i], pct, p.port === probe ? "hit" : p.exposed ? "" : "local");
     }
     if (probe && !ports.some((p) => p.port === probe)) {
       const [i, pct] = where(probe);
-      const t = el("span", "hit");
-      t.style.left = `calc(${pct}% - 1px)`;
-      segs[i].append(t);
+      tick(segs[i], pct, "hit");
     }
     strip.append(...segs);
     const legend = el("div", "legend");
-    legend.append(el("span", null, "1 — 1023 system"), el("span", null, "1024 — 49151 registered"), el("span", null, "49152+ ephemeral"));
-    card.append(strip, legend);
+    legend.append(el("span", null, "1 — 1023"), el("span", null, "1024 — 49151"), el("span", null, "49152+"));
+    panel.append(strip, legend);
 
-    const slots = el("div", "slots");
+    const keys = el("div", "keys");
     for (const p of ports) {
-      const b = el("button", "slot" + (p.exposed ? "" : " local") + (probe ? (p.port === probe ? " hit" : " dim") : ""));
+      const b = el("button", "key" + (p.exposed ? "" : " local") + (probe ? (p.port === probe ? " hit" : " dim") : ""));
       b.type = "button";
-      b.append(el("span", "n", String(p.port)), el("span", "l", label(p)), el("span", "p", p.proto));
+      b.append(el("span", "p", p.proto), el("span", "n", String(p.port)), el("span", "l", label(p)));
       b.setAttribute("aria-label", `port ${p.port} ${p.proto} ${label(p)}`);
       const show = () => showTicket(b, h, p);
       b.addEventListener("mouseenter", show);
       b.addEventListener("focus", show);
       b.addEventListener("mouseleave", hideTicket);
       b.addEventListener("blur", hideTicket);
-      slots.append(b);
+      keys.append(b);
     }
-    card.append(slots);
-    root.append(card);
+    panel.append(keys);
+    host.append(panel);
+    root.append(host);
   }
-
-  $("tally").replaceChildren();
-  const t = $("tally");
-  t.append(el("b", null, String(hosts.length)), " hosts · ", el("b", null, String(used)), " ports bound");
   renderProbe(probe, hosts);
 }
 
 function renderProbe(probe, hosts) {
   const out = $("probe-out");
   out.replaceChildren();
-  if (!probe) { out.textContent = "type a port to check every host"; return; }
+  const used = hosts.reduce((n, h) => n + h.ports.length, 0);
+  if (!probe && $("probe").value) { out.textContent = "Ports run from 1 to 65535"; return; }
+  if (!probe) {
+    out.textContent = `${used} ports bound across ${hosts.length} machine${hosts.length === 1 ? "" : "s"} · type a port`;
+    return;
+  }
   const takenOn = hosts.filter((h) => h.ports.some((p) => p.port === probe)).map((h) => h.host);
   if (!takenOn.length) {
-    out.append(el("b", null, "free"), " on every host");
+    out.append(el("b", "free", "Free"), " on every machine");
     return;
   }
   const all = new Set(hosts.flatMap((h) => h.ports.map((p) => p.port)));
   let next = probe + 1;
   while (next <= 65535 && all.has(next)) next++;
-  out.append(el("b", "taken", "taken"), ` on ${takenOn.join(", ")} · next free everywhere: `, el("b", null, String(next)));
+  out.append(el("b", "taken", "Taken"), ` on ${takenOn.join(", ")} · next free everywhere: `, el("b", null, String(next)));
 }
 
 function showTicket(anchor, h, p) {
   const tk = $("ticket");
   tk.replaceChildren();
-  tk.append(el("h3", null, `${p.port}/${p.proto}`));
-  tk.append(el("div", "sub", `${h.host} · ${p.exposed ? "exposed" : "loopback only"}`));
+  tk.append(el("div", "cap", `${h.host} · ${p.proto} · ${p.exposed ? "exposed" : "loopback only"}`));
+  tk.append(el("h3", null, String(p.port)));
   const dl = el("dl");
   const row = (k, v) => { if (v) dl.append(el("dt", null, k), el("dd", null, v)); };
   row("bind", p.addrs.map((a) => `${a} (${scope(a)})`).join("\n") || "—");
@@ -179,7 +177,7 @@ async function load() {
     data = await r.json();
     render();
   } catch (e) {
-    $("tally").textContent = "connection lost — retrying";
+    $("probe-out").textContent = "Connection lost — retrying";
   }
 }
 
@@ -187,8 +185,8 @@ $("probe").addEventListener("input", (e) => {
   e.target.value = e.target.value.replace(/\D/g, "");
   render();
 });
-$("hide-local").addEventListener("change", (e) => {
-  hideLocal = e.target.checked;
+$("hide-local").addEventListener("click", () => {
+  hideLocal = !hideLocal;
   try { localStorage.setItem("pm-hide-local", hideLocal ? "1" : "0"); } catch {}
   render();
 });
