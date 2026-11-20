@@ -7,6 +7,12 @@ import Scene from "./Scene.jsx";
 import Intro from "./Intro.jsx";
 import Lift from "./Lift.jsx";
 
+// Paper Shaders injects an inline <style> unless one tagged data-paper-shader exists;
+// our CSP forbids inline styles, so claim the slot with an empty tag (rules are in style.css).
+const paperSlot = document.createElement("style");
+paperSlot.setAttribute("data-paper-shader", "");
+document.head.append(paperSlot);
+
 // No WebGL (old GPU, disabled, context lost) → render nothing; CSS background remains.
 class Quiet extends Component {
   state = { failed: false };

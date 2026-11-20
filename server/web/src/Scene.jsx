@@ -3,7 +3,7 @@
 // changes), so an open dashboard that nobody touches costs no GPU at all.
 import { Canvas, useFrame, useThree } from "@react-three/fiber";
 import { ShaderGradient } from "@shadergradient/react";
-import { useEffect } from "react";
+import { useEffect, useRef, useState } from "react";
 import { MathUtils, ShaderChunk } from "three";
 import { reducedMotion, useTheme } from "./theme.js";
 
@@ -46,8 +46,39 @@ function ScrollDriver({ theme }) {
   return null;
 }
 
+const MORPH = 900;  // ms: the gradient glides between palettes on a theme switch
+const hex = (h) => [1, 3, 5].map((i) => parseInt(h.slice(i, i + 2), 16));
+const toHex = (c) => "#" + c.map((v) => Math.round(v).toString(16).padStart(2, "0")).join("");
+const mix = (a, b, t) => ({
+  color1: toHex(hex(a.color1).map((v, i) => v + (hex(b.color1)[i] - v) * t)),
+  color2: toHex(hex(a.color2).map((v, i) => v + (hex(b.color2)[i] - v) * t)),
+  color3: toHex(hex(a.color3).map((v, i) => v + (hex(b.color3)[i] - v) * t)),
+  brightness: a.brightness + (b.brightness - a.brightness) * t,
+});
+
+// Animates the palette instead of swapping it, so dark <-> light is a colour morph.
+function useLook(theme) {
+  const [look, setLook] = useState(LOOK[theme]);
+  const shown = useRef(look);
+  useEffect(() => {
+    const from = shown.current, to = LOOK[theme], t0 = performance.now();
+    if (from === to) return;
+    let raf;
+    const step = (now) => {
+      const p = Math.min((now - t0) / MORPH, 1), e = p < 0.5 ? 2 * p * p : 1 - (-2 * p + 2) ** 2 / 2;
+      shown.current = p === 1 ? to : mix(from, to, e);
+      setLook(shown.current);
+      if (p < 1) raf = requestAnimationFrame(step);
+    };
+    raf = requestAnimationFrame(step);
+    return () => cancelAnimationFrame(raf);
+  }, [theme]);
+  return look;
+}
+
 export default function Scene() {
   const theme = useTheme();
+  const look = useLook(theme);
   return (
     <Canvas
       frameloop="demand"
@@ -82,7 +113,7 @@ export default function Scene() {
         reflection={0.1}
         lightType="3d"
         grain="off"
-        {...LOOK[theme]}
+        {...look}
       />
     </Canvas>
   );

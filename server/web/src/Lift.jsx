@@ -159,7 +159,8 @@ function Cap() {
           face.current.geometry = new PlaneGeometry(w, h);
           s.w = w; s.h = h;
         }
-        const key = `${el.className.replace(" lifted", "")}|${el.textContent}|${w}x${h}`;
+        const theme = document.documentElement.dataset.theme || (matchMedia("(prefers-color-scheme: dark)").matches ? "dark" : "light");
+        const key = `${theme}|${el.className.replace(" lifted", "")}|${el.textContent}|${w}x${h}`;
         let painted = faces.get(key);
         if (!painted) {
           if (faces.size > 200) { faces.forEach((f) => f.tex.dispose()); faces.clear(); }

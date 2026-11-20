@@ -13,13 +13,13 @@ The fonts are redistributed unmodified (latin subset in WOFF2 format) under the 
 
 The container images contain the unmodified upstream base image. Each package's license and source are available from the Alpine Linux and Python projects.
 
-The globe logo (`docs/logo.png` and the icons in `server/static/`) was provided by the project author and is distributed with the project under the same MIT license.
+The logo (`docs/logo.png` and the logos and icons in `server/static/`) was provided by the project author and is distributed with the project under the same MIT license.
 
 No other third-party code is used: the server and agent depend only on the Python standard library.
 
 ## Dashboard WebGL bundle (server/web, built into `static/app.js`)
 
-All MIT licensed; their license texts are kept in the bundle's npm packages and summarised here.
+All MIT or Apache-2.0 licensed; their license texts ship in the npm packages and are summarised here.
 
 | Component | License | Source |
 |---|---|---|
@@ -27,6 +27,6 @@ All MIT licensed; their license texts are kept in the bundle's npm packages and 
 | three.js | MIT | https://github.com/mrdoob/three.js |
 | @react-three/fiber | MIT | https://github.com/pmndrs/react-three-fiber |
 | @shadergradient/react | MIT | https://github.com/ruucm/shadergradient |
-| liquid-logo shader (adapted in `server/web/src/Intro.jsx`) | MIT, Copyright (c) 2025 Alan Ang | https://github.com/collidingScopes/liquid-logo |
+| @paper-design/shaders, @paper-design/shaders-react (liquid metal intro, `server/web/src/Intro.jsx`) | Apache-2.0 | https://github.com/paper-design/shaders |
 
 Everything is bundled and served by portmap itself; the browser makes no outside requests.

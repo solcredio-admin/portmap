@@ -1,15 +1,14 @@
 // Sign-in transition: the moment the form is sent, the screen dims and the logo
 // glides from the card to the centre, landing exactly where the dashboard's intro
-// starts, so the page switch is invisible. Without JS (or with reduced motion)
-// the form posts normally.
+// starts, so the page switch is invisible. Without JS the form posts normally.
 (function () {
   const form = document.querySelector(".login form");
-  if (!form || !window.fetch || matchMedia("(prefers-reduced-motion: reduce)").matches) return;
+  if (!form || !window.fetch) return;
   const ERRORS = { 1: "Wrong credentials.", 2: "Too many attempts. Try again in 15 minutes." };
   const DURATION = 750;  // matches .fly / .curtain in style.css
 
   function play() {
-    const logo = form.querySelector(".logo");
+    const logo = [...form.querySelectorAll(".logo")].find((l) => l.offsetParent) || form.querySelector(".logo");
     const r = logo.getBoundingClientRect();
     const size = Math.min(Math.min(innerWidth, innerHeight) * 0.56, 320);  // = .liquid in the intro
     const curtain = document.createElement("div");
@@ -17,7 +16,7 @@
     const fly = document.createElement("img");
     fly.className = "fly";
     fly.alt = "";
-    fly.src = logo.dataset.full || "/logo.png";
+    fly.src = logo.src;
     // Rendered at full size and scaled down to the card logo, so it stays sharp while growing.
     Object.assign(fly.style, {
       width: size + "px", height: size + "px",

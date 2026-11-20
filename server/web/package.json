@@ -6,6 +6,8 @@
     "build": "vite build"
   },
   "dependencies": {
+    "@paper-design/shaders": "^0.0.82",
+    "@paper-design/shaders-react": "^0.0.82",
     "@react-three/fiber": "^9.8.2",
     "@shadergradient/react": "^2.4.20",
     "react": "^19.3.1",

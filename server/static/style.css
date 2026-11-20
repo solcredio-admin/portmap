@@ -200,9 +200,9 @@ main { display: grid; gap: 40px; padding: 0 16px 140px; max-width: 1240px; margi
 .ticket dd { margin: 0; font: 400 11.5px/1.45 var(--mono); word-break: break-all; white-space: pre-line; }
 
 /* ---------- login: the still version of the gradient, one glass card ---------- */
-.login { min-height: 100vh; display: grid; grid-template-rows: auto 1fr; }
+.login { min-height: 100vh; display: grid; }
 .login form {
-  place-self: center; width: 400px; max-width: calc(100% - 32px); display: grid; gap: 22px; text-align: center;
+  place-self: center; margin-top: 10vh; width: 400px; max-width: calc(100% - 32px); display: grid; gap: 22px; text-align: center;
   margin-bottom: 10vh; padding: 34px 32px 30px;
   background: var(--glass); border: 1px solid var(--line); border-radius: 26px;
   backdrop-filter: blur(18px) saturate(1.3); -webkit-backdrop-filter: blur(18px) saturate(1.3);
@@ -217,7 +217,7 @@ main { display: grid; gap: 40px; padding: 0 16px 140px; max-width: 1240px; margi
 }
 .login button:hover { background: transparent; color: var(--ink); }
 .login .err { color: var(--warn); min-height: 1em; }
-.login .logo { width: 72px; height: 72px; justify-self: center; margin-bottom: -6px; }
+.login .logo { width: 108px; height: 108px; justify-self: center; margin: -14px 0 -18px; }
 
 @media (max-width: 640px) {
   main { gap: 28px; padding: 0 8px 96px; }
@@ -287,7 +287,7 @@ html.intro body { overflow: hidden; }
 .liquid { position: relative; width: min(56vmin, 320px); aspect-ratio: 1; animation: breathe-logo 2.4s ease-in-out infinite; }
 .liquid img, .liquid canvas { position: absolute; inset: 0; width: 100% !important; height: 100% !important; }
 /* Compositor-only breathing: keeps moving while the bundle parses and shaders compile. */
-.liquid img { transition: opacity .15s linear; }  /* first WebGL frame is the same picture */
+.liquid img { transition: opacity .9s ease; }
 .liquid img.gone { opacity: 0; }
 .intro-stage .cap {
   position: absolute; top: 100%; left: 50%; margin-top: 26px; white-space: nowrap;
@@ -337,3 +337,24 @@ body.reveal .host:nth-child(n+4) { animation-delay: .24s; }
 .ticket { box-shadow: inset 0 1px 0 var(--rim), inset 0 -1px 0 var(--rim-soft), 0 24px 60px -20px rgba(0, 0, 0, .5); }
 /* The keycap slab: a hair translucent, with its own thin rim. */
 .panel { box-shadow: inset 0 1px 0 rgba(255, 255, 255, .09), 0 30px 60px -30px rgba(0, 0, 0, .45); }
+
+/* Logos per theme: black mark on light, white mark on dark. */
+.only-dark { display: none; }
+:root[data-theme="dark"] .only-dark { display: revert; }
+:root[data-theme="dark"] .only-light { display: none; }
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) .only-dark { display: revert; }
+  :root:not([data-theme="light"]) .only-light { display: none; }
+}
+
+/* Paper Shaders canvas (its own injected <style> is blocked by our CSP, so the rules live here). */
+[data-paper-shader] { isolation: isolate; position: relative; }
+[data-paper-shader] canvas { contain: strict; display: block; position: absolute; inset: 0; z-index: -1; width: 100%; height: 100%; border-radius: inherit; }
+/* The liquid metal layer cross-fades in over the plain mark. */
+.liquid .metal { position: absolute; inset: 0; opacity: 0; transition: opacity .9s ease; }
+.liquid .metal.on { opacity: 1; }
+
+/* Theme switch: colours glide while the WebGL gradient morphs palettes (theme.js + Scene.jsx). */
+html.theme-anim *, html.theme-anim *::before, html.theme-anim *::after {
+  transition: background-color .9s ease, color .9s ease, border-color .9s ease, box-shadow .9s ease, fill .9s ease !important;
+}

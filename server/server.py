@@ -46,7 +46,10 @@ PUBLIC = {
     "/favicon.png": ("favicon.png", "image/png"),
     "/icon.png": ("icon.png", "image/png"),
     "/apple-touch-icon.png": ("apple-touch-icon.png", "image/png"),
-    "/logo.png": ("logo.png", "image/png"),
+    "/logo-light.png": ("logo-light.png", "image/png"),
+    "/logo-dark.png": ("logo-dark.png", "image/png"),
+    "/logo-liquid.png": ("logo-liquid.png", "image/png"),
+    "/favicon-dark.png": ("favicon-dark.png", "image/png"),
     "/fonts/cormorant-garamond.woff2": ("fonts/cormorant-garamond.woff2", "font/woff2"),
     "/fonts/roboto-mono.woff2": ("fonts/roboto-mono.woff2", "font/woff2"),
 }
@@ -113,7 +116,9 @@ class H(BaseHTTPRequestHandler):
         self.send_header("Content-Type", ctype)
         self.send_header("Content-Length", str(len(body)))
         self.send_header("Content-Security-Policy",
-                         "default-src 'self'; frame-ancestors 'none'; base-uri 'none'; form-action 'self'")
+                         "default-src 'self'; frame-ancestors 'none'; base-uri 'none'; form-action 'self'; "
+                         # the one hash is the empty string: Paper Shaders' empty <style> slot (main.jsx)
+                         "style-src 'self' 'sha256-47DEQpj8HBSa+/TImW+5JCeuQeRkm5NMpJWZG3hSuFU='")
         self.send_header("X-Content-Type-Options", "nosniff")
         self.send_header("X-Frame-Options", "DENY")
         self.send_header("Referrer-Policy", "no-referrer")

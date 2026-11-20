@@ -6,18 +6,18 @@
 <title>Portmap · Sign in</title>
 <link rel="stylesheet" href="/style.css">
 <link rel="icon" type="image/png" href="/favicon.png?v={{V}}">
+<link rel="icon" type="image/png" href="/favicon-dark.png?v={{V}}" media="(prefers-color-scheme: dark)">
 <link rel="apple-touch-icon" href="/apple-touch-icon.png?v={{V}}">
 <script src="/theme.js"></script>
 <!-- Warm the cache while the user types: the post-login intro then starts instantly. -->
 <link rel="prefetch" href="/app.js?v={{V}}">
-<link rel="prefetch" href="/logo.png?v={{V}}">
+<link rel="prefetch" href="/logo-liquid.png?v={{V}}">
 <script src="/login.js" defer></script>
 </head>
 <body>
 <div class="login">
-  <header class="bar"><span></span><span class="cap">Portmap</span><span></span></header>
   <form method="post" action="/login" autocomplete="on">
-    <img class="logo" src="/icon.png?v={{V}}" data-full="/logo.png?v={{V}}" alt="">
+    <img class="logo only-light" src="/logo-light.png?v={{V}}" alt="Portmap"><img class="logo only-dark" src="/logo-dark.png?v={{V}}" alt="Portmap">
     <h1>Every listening port, on every machine, at a glance.</h1>
     <label class="cap">Username <input name="username" autocomplete="username" required autofocus></label>
     <label class="cap">Password <input name="password" type="password" autocomplete="current-password" required></label>
