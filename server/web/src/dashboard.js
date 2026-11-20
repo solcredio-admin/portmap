@@ -128,14 +128,19 @@ function renderProbe(probe, hosts) {
     return;
   }
   const takenOn = hosts.filter((h) => h.ports.some((p) => p.port === probe)).map((h) => h.host);
+  const freeOn = hosts.filter((h) => !takenOn.includes(h.host)).map((h) => h.host);
   if (!takenOn.length) {
     out.append(el("b", "free", "Free"), " on every machine");
+    return;
+  }
+  if (freeOn.length) {  // "Taken" only when every machine has it; otherwise say where it's free
+    out.append(el("b", "free", "Free"), ` on ${freeOn.join(", ")}`, el("span", "muted", ` · taken on ${takenOn.join(", ")}`));
     return;
   }
   const all = new Set(hosts.flatMap((h) => h.ports.map((p) => p.port)));
   let next = probe + 1;
   while (next <= 65535 && all.has(next)) next++;
-  out.append(el("b", "taken", "Taken"), ` on ${takenOn.join(", ")} · next free everywhere: `, el("b", null, String(next)));
+  out.append(el("b", "taken", "Taken"), " on every machine · next free everywhere: ", el("b", null, String(next)));
 }
 
 function showTicket(anchor, h, p) {
@@ -193,6 +198,18 @@ $("hide-local").addEventListener("click", () => {
   render();
 });
 addEventListener("scroll", hideTicket, { passive: true });
+
+// Sign out with motion: the page lifts away, the screen dims to the logo, then the
+// login page flies that logo back into its card (/login?out, see login.js).
+document.querySelector("form.out").addEventListener("submit", async (e) => {
+  e.preventDefault();
+  hideTicket();
+  document.documentElement.classList.add("signing-out");
+  const beat = new Promise((r) => setTimeout(r, 950));
+  try { await fetch("/logout", { method: "POST", credentials: "same-origin" }); } catch {}
+  await beat;
+  location.replace("/login?out");
+});
 
 // ---------- "Add agent" panel ----------
 // Keep in sync with agent/docker-compose.yml.

@@ -6,6 +6,11 @@
   if (saved === "light" || saved === "dark") root.dataset.theme = saved;
   // Just signed in (/?intro): show the loading screen from the very first paint.
   if (/[?&]intro\b/.test(location.search)) root.classList.add("intro");
+  // Just signed out (/login?out): login.js flies the logo back into the card.
+  if (/[?&]out\b/.test(location.search)) {
+    root.classList.add("out");
+    setTimeout(() => root.classList.remove("out"), 2500);  // never leave the page hidden if login.js fails
+  }
 
   const current = () => root.dataset.theme || (matchMedia("(prefers-color-scheme: dark)").matches ? "dark" : "light");
 
