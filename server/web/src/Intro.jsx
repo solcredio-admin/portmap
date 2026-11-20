@@ -1,6 +1,7 @@
 // Post-login loading screen: the globe logo as liquid metal, then a short zoom-out
 // into the dashboard. Shader adapted from github.com/collidingScopes/liquid-logo
-// (MIT, (c) 2025 Alan Ang), "Galaxy" preset baked in as constants.
+// (MIT, (c) 2025 Alan Ang), "Galaxy" preset baked in as constants; its output is used
+// as light over the logo's own colours rather than as the colour itself.
 import { Canvas, useFrame, useLoader, useThree } from "@react-three/fiber";
 import { Suspense, useEffect, useMemo, useRef, useState } from "react";
 import { TextureLoader, Vector2 } from "three";
@@ -9,6 +10,9 @@ const AWAKEN = 1.2;      // s: the plain logo melts into liquid metal
 const HOLD = 1900;       // ms from first frame (incl. AWAKEN) before clearing out
 const MAX_WAIT = 5000;   // never hold the dashboard back (slow /api/hosts, no WebGL)
 const LEAVE = 800;       // ms: matches the .leave transition in style.css
+
+// Same versioned URL as the page's placeholder <img>, read before React replaces it.
+const LOGO = document.querySelector("#intro img")?.getAttribute("src") || "/logo.png";
 
 const vertex = /* glsl */ `void main() { gl_Position = vec4(position.xy, 0.0, 1.0); }`;
 
@@ -120,14 +124,16 @@ void main() {
   o.rgb += hl * vec3(0.4, 0.3, 0.5);
   o = clamp(o, 0.0, 1.0);
 
-  vec4 col = mix(o, vec4(o.rgb * 0.8 + 0.2, alpha), 0.3);
-  col.rgb += pow(edge * 1.2, 4.0) * vec3(0.6, 0.7, 0.8);
-  col.a = min(col.a + 0.4, 1.0);
-  gl_FragColor = mix(texture2D(u_logo, uv), col, u_mix);
+  // The liquid pattern becomes moving light over the logo's own colours: the blue
+  // globe shimmers like metal, the gold nodes stay gold, the silhouette is untouched.
+  vec4 logo = texture2D(u_logo, uv);
+  float lum = dot(o.rgb, vec3(0.299, 0.587, 0.114));
+  vec3 metal = logo.rgb * (0.55 + 0.9 * lum) + pow(lum, 3.0) * 0.45 + pow(edge * 1.2, 4.0) * 0.5;
+  gl_FragColor = mix(logo, vec4(clamp(metal, 0.0, 1.0), logo.a), u_mix);
 }`;
 
 function Liquid({ onReady }) {
-  const logo = useLoader(TextureLoader, "/logo.png");
+  const logo = useLoader(TextureLoader, LOGO);
   const size = useThree((s) => s.size);
   const dpr = useThree((s) => s.viewport.dpr);
   const uniforms = useMemo(() => ({
@@ -179,7 +185,7 @@ export default function Intro({ onLeave, onDone }) {
   return (
     <div className="intro-stage">
       <div className="liquid">
-        <img className={ready ? "gone" : ""} src="/logo.png" alt="" decoding="sync" />
+        <img className={ready ? "gone" : ""} src={LOGO} alt="" decoding="sync" />
         <Canvas flat linear dpr={[1, 2]} resize={{ offsetSize: true }} gl={{ antialias: false, alpha: true }}>
           <Suspense fallback={null}><Liquid onReady={() => setReady(true)} /></Suspense>
         </Canvas>

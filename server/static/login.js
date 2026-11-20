@@ -17,7 +17,7 @@
     const fly = document.createElement("img");
     fly.className = "fly";
     fly.alt = "";
-    fly.src = "/logo.png";
+    fly.src = logo.dataset.full || "/logo.png";
     // Rendered at full size and scaled down to the card logo, so it stays sharp while growing.
     Object.assign(fly.style, {
       width: size + "px", height: size + "px",

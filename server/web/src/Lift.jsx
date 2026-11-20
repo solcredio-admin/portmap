@@ -4,7 +4,7 @@
 // is pointer-events: none and draws frames only while something is moving.
 import { Canvas, useFrame, useThree } from "@react-three/fiber";
 import { useEffect, useMemo, useRef } from "react";
-import { CanvasTexture, LinearFilter, MathUtils, PlaneGeometry, SRGBColorSpace } from "three";
+import { CanvasTexture, LinearFilter, MathUtils, PlaneGeometry, SRGBColorSpace, Vector3 } from "three";
 import { RoundedBoxGeometry } from "three/examples/jsm/geometries/RoundedBoxGeometry.js";
 
 const DEPTH = 14, LIFT = 46, POP = 1.16, TILT = 0.42;
@@ -55,6 +55,26 @@ function keyAt(x, y) {
   return best;
 }
 
+// Liquid-glass shell around the cap: edges glow at grazing angles (fresnel) and a
+// specular glint tracks the cursor light; head-on it stays clear so the label reads.
+const shellVertex = /* glsl */ `
+varying vec3 vN; varying vec3 vP;
+void main() {
+  vec4 mv = modelViewMatrix * vec4(position, 1.0);
+  vN = normalize(normalMatrix * normal); vP = mv.xyz;
+  gl_Position = projectionMatrix * mv;
+}`;
+const shellFragment = /* glsl */ `
+uniform vec3 uLight; varying vec3 vN; varying vec3 vP;
+void main() {
+  vec3 N = normalize(vN), V = normalize(-vP), L = normalize(uLight - vP);
+  float fres = pow(1.0 - abs(dot(N, V)), 3.0);
+  float spec = pow(max(dot(N, normalize(L + V)), 0.0), 160.0);
+  float a = clamp(fres * 0.55 + spec * 0.55, 0.0, 0.85);
+  gl_FragColor = vec4(vec3(1.0), a);
+}`;
+const lightView = new Vector3();
+
 const faces = new Map();  // painted labels, reused: re-uploading a texture per switch hitched
 
 // The key's face, painted from the DOM key itself so theme, .local and labels match.
@@ -68,6 +88,14 @@ function paintFace(el, w, h) {
   g.scale(s, s);
   g.fillStyle = edge; g.beginPath(); g.roundRect(0, 0, w, h, 10); g.fill();
   g.fillStyle = cs.backgroundColor; g.beginPath(); g.roundRect(0, 0, w, h - 4, 10); g.fill();
+  // Liquid-glass finish, same recipe as the CSS panels: diagonal sheen, bright top rim.
+  g.save(); g.beginPath(); g.roundRect(0, 0, w, h - 4, 10); g.clip();
+  const sheen = g.createLinearGradient(0, 0, w, h);
+  sheen.addColorStop(0, "rgba(255,255,255,.42)"); sheen.addColorStop(0.38, "rgba(255,255,255,0)");
+  sheen.addColorStop(0.72, "rgba(255,255,255,0)"); sheen.addColorStop(1, "rgba(255,255,255,.16)");
+  g.fillStyle = sheen; g.fillRect(0, 0, w, h);
+  g.fillStyle = "rgba(255,255,255,.85)"; g.fillRect(6, 0, w - 12, 1.2);
+  g.restore();
   g.fillStyle = cs.color; g.textBaseline = "alphabetic";
   const txt = (sel) => el.querySelector(sel)?.textContent || "";
   g.globalAlpha = 0.5; g.font = "500 8.5px 'Roboto Mono', monospace"; g.textAlign = "right";
@@ -87,7 +115,8 @@ function paintFace(el, w, h) {
 }
 
 function Cap() {
-  const group = useRef(), face = useRef(), body = useRef(), light = useRef();
+  const group = useRef(), face = useRef(), body = useRef(), light = useRef(), shell = useRef();
+  const shellUniforms = useMemo(() => ({ uLight: { value: new Vector3() } }), []);
   const camera = useThree((s) => s.camera);
   const size = useThree((s) => s.size);
   const invalidate = useThree((s) => s.invalidate);
@@ -96,6 +125,7 @@ function Cap() {
     face.current.material.map = tex;
     face.current.material.needsUpdate = true;
     body.current.material.color.set(edge);
+    body.current.material.emissive.set(edge);
   };
 
   // 1 world unit = 1 CSS pixel on the z=0 plane, with real perspective for the tilt.
@@ -142,6 +172,8 @@ function Cap() {
           s.geo?.dispose();
           s.geo = new RoundedBoxGeometry(w, h, DEPTH, 3, 9);
           body.current.geometry = s.geo;
+          shell.current.geometry.dispose();
+          shell.current.geometry = new RoundedBoxGeometry(w + 4, h + 4, DEPTH + 4, 4, 11);
           face.current.geometry.dispose();
           face.current.geometry = new PlaneGeometry(w, h);
           s.w = w; s.h = h;
@@ -199,6 +231,7 @@ function Cap() {
     g.scale.setScalar(1 + (POP - 1) * s.lift);
     g.visible = s.lift > 0.01;
     light.current.position.set(pointer.x - innerWidth / 2, innerHeight / 2 - pointer.y, 160);
+    shellUniforms.uLight.value.copy(lightView.copy(light.current.position).applyMatrix4(camera.matrixWorldInverse));
 
     const moving = pointer.lostAt > 0 || s.hidePending || speed > 1 || Math.abs(g.position.x - tx) + Math.abs(g.position.y - ty) > 0.3
       || Math.abs(s.lift - (s.el ? 1 : 0)) > 0.005
@@ -213,11 +246,17 @@ function Cap() {
       <group ref={group} visible={false}>
         <mesh ref={body}>
           <boxGeometry args={[1, 1, 1]} />
-          <meshStandardMaterial roughness={0.45} metalness={0.05} />
+          {/* Self-lit base: the sides keep the key's edge colour instead of falling into dark shade. */}
+          <meshStandardMaterial roughness={0.45} metalness={0} emissiveIntensity={0.7} />
         </mesh>
         <mesh ref={face} position-z={DEPTH / 2 + 0.05}>
           <planeGeometry args={[1, 1]} />
           <meshBasicMaterial transparent toneMapped={false} />
+        </mesh>
+        <mesh ref={shell} renderOrder={2}>
+          <boxGeometry args={[1, 1, 1]} />
+          <shaderMaterial vertexShader={shellVertex} fragmentShader={shellFragment} uniforms={shellUniforms}
+            transparent depthWrite={false} />
         </mesh>
       </group>
     </>
