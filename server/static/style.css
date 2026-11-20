@@ -70,7 +70,8 @@ button, input { font: inherit; color: inherit; }
 .cap { font: 500 12px/1.4 var(--mono); text-transform: uppercase; letter-spacing: .02em; color: var(--muted); }
 
 /* WebGL gradient layer (Scene.jsx), fixed behind everything */
-#scene { position: fixed; inset: 0; z-index: -1; pointer-events: none; }
+#scene { position: fixed; inset: 0; z-index: -1; pointer-events: none; opacity: 0; transition: opacity 1s ease; }
+#scene.on { opacity: 1; }
 /* 3D keycap hover layer (Lift.jsx): over the cards, under the bar and hover card */
 #lift { position: fixed; inset: 0; z-index: 4; pointer-events: none; }
 .key.lifted { opacity: 0; transition: none; }
@@ -306,11 +307,12 @@ html.intro body { overflow: hidden; }
 .fly { position: fixed; z-index: 41; transform-origin: center; transition: transform .75s cubic-bezier(.65, 0, .35, 1); }
 html.leaving .login form > :not(.logo) { opacity: 0; transform: translateY(6px); transition: opacity .3s ease, transform .3s ease; }
 
-/* the dashboard rises in once the intro clears */
-body.reveal .hero, body.reveal .host { animation: rise .9s cubic-bezier(.2, .7, .2, 1) both; }
-body.reveal .host:nth-child(2) { animation-delay: .08s; }
-body.reveal .host:nth-child(3) { animation-delay: .16s; }
-body.reveal .host:nth-child(n+4) { animation-delay: .24s; }
+/* Under the intro the dashboard is fully hidden; it rises in as the logo clears (main.jsx).
+   Animated on containers that the 10s refresh never rebuilds, so it can't replay mid-way. */
+html.intro body:not(.reveal) > :not(#intro):not(#scene):not(#lift) { opacity: 0; }
+body.reveal .bar, body.reveal .hero, body.reveal main { animation: rise .9s cubic-bezier(.2, .7, .2, 1) both; }
+body.reveal .hero { animation-delay: .07s; }
+body.reveal main { animation-delay: .14s; }
 @keyframes rise { from { opacity: 0; transform: translateY(28px) scale(.985); } }
 
 @media (prefers-reduced-motion: reduce) {

@@ -25,25 +25,35 @@ let sceneMounted = false;
 const mountScene = () => {
   if (sceneMounted) return;
   sceneMounted = true;
-  createRoot(document.getElementById("scene")).render(<Quiet><Scene /></Quiet>);
+  const scene = document.getElementById("scene");
+  createRoot(scene).render(<Quiet><Scene /></Quiet>);
   createRoot(document.getElementById("lift")).render(<Quiet><Lift /></Quiet>);
+  // Fade the WebGL gradient in over its CSS stand-in (body background) once it has drawn.
+  setTimeout(() => scene.classList.add("on"), 120);
 };
 
 const introEl = document.getElementById("intro");
 if (location.search) history.replaceState(null, "", location.pathname);  // drop ?intro: a reload skips it
 if (document.documentElement.classList.contains("intro")) {
+  // The dashboard stays invisible under the intro (style.css) and rises in exactly when
+  // the logo starts clearing, beneath the fading overlay: one motion, never shown twice.
+  // The WebGL gradient mounts only after the rise: its shader compile blocks the main
+  // thread, which delayed the rise and made it look like a second, late pull-up.
+  let revealed = false;
+  const reveal = () => {
+    if (revealed) return;
+    revealed = true;
+    document.body.classList.add("reveal");
+    setTimeout(() => document.body.classList.remove("reveal"), 1500);  // after the rise ends
+    setTimeout(mountScene, 1300);
+  };
   const done = () => {
     document.documentElement.classList.remove("intro");
-    document.body.classList.add("reveal");
-    setTimeout(() => document.body.classList.remove("reveal"), 1600);  // polls rebuild cards; don't replay
     root.unmount();  // frees the intro's WebGL context
     introEl.remove();
   };
-  // The gradient's shader compile blocks the main thread; doing it during the intro
-  // made the liquid logo stutter. Start it when the zoom-out begins: that is a CSS
-  // transform, which the compositor keeps smooth even while the main thread works.
   const root = createRoot(introEl);
-  root.render(<Quiet onFail={() => setTimeout(() => { mountScene(); done(); })}><Intro onLeave={mountScene} onDone={done} /></Quiet>);
+  root.render(<Quiet onFail={() => setTimeout(() => { reveal(); done(); })}><Intro onLeave={reveal} onDone={done} /></Quiet>);
 } else {
   introEl.remove();
   mountScene();
