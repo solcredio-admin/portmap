@@ -8,9 +8,34 @@ import { CanvasTexture, LinearFilter, MathUtils, PlaneGeometry, SRGBColorSpace }
 import { RoundedBoxGeometry } from "three/examples/jsm/geometries/RoundedBoxGeometry.js";
 
 const DEPTH = 14, LIFT = 46, POP = 1.16, TILT = 0.42;
-const GLIDE = 30, RISE = 18, TURN = 16;  // damping rates (1/s): higher = snappier
+const STIFF = 420, DAMP = 2 * Math.sqrt(STIFF);  // critically damped spring: eases in and out, no overshoot
+const HOP = 16;          // px of extra lift while travelling between keys
+const RISE = 18, TURN = 16;  // damping rates (1/s) for lift and tilt
 const GAP_GRACE = 140;  // ms: crossing the gap between keys glides instead of dropping
 const pointer = { x: -1e4, y: -1e4, el: null, lostAt: 0 };
+const RIPPLE_R = 260, PUSH = 8, RISE_PX = 3, GROW = 0.04;  // neighbours: subtle on purpose
+let field = null;  // the .keys grid currently rippling
+
+// Neighbours drift a few px away from the cursor and rise slightly, fading with
+// distance. CSS transforms on the real buttons (compositor-only), not extra WebGL.
+function ripple() {
+  const grid = pointer.el?.closest(".keys") || null;
+  if (field && field !== grid) for (const k of field.children) k.style.transform = "";
+  field = grid;
+  if (!grid) return;
+  const g = grid.getBoundingClientRect();
+  for (const k of grid.children) {
+    if (k === pointer.el) { k.style.transform = ""; continue; }
+    // offset* ignores transforms, so the ripple never chases its own displacement
+    const dx = g.left + k.offsetLeft + k.offsetWidth / 2 - pointer.x;
+    const dy = g.top + k.offsetTop + k.offsetHeight / 2 - pointer.y;
+    const d = Math.hypot(dx, dy), f = Math.max(0, 1 - d / RIPPLE_R) ** 1.5;
+    if (f < 0.01) { k.style.transform = ""; continue; }
+    const push = (PUSH * f) / (d || 1);
+    k.style.transform = `translate(${(dx * push).toFixed(1)}px, ${(dy * push - RISE_PX * f).toFixed(1)}px) scale(${(1 + GROW * f).toFixed(3)})`;
+  }
+}
+
 const faces = new Map();  // painted labels, reused: re-uploading a texture per switch hitched
 
 // The key's face, painted from the DOM key itself so theme, .local and labels match.
@@ -47,7 +72,12 @@ function Cap() {
   const camera = useThree((s) => s.camera);
   const size = useThree((s) => s.size);
   const invalidate = useThree((s) => s.invalidate);
-  const st = useRef({ el: null, w: 92, h: 72, lift: 0, geo: null, tex: null });
+  const st = useRef({ el: null, w: 92, h: 72, lift: 0, geo: null, vx: 0, vy: 0, nextFace: null, from: 0 });
+  const setFace = ({ tex, edge }) => {
+    face.current.material.map = tex;
+    face.current.material.needsUpdate = true;
+    body.current.material.color.set(edge);
+  };
 
   // 1 world unit = 1 CSS pixel on the z=0 plane, with real perspective for the tilt.
   useEffect(() => {
@@ -65,9 +95,9 @@ function Cap() {
       else if (pointer.el && !pointer.lostAt) pointer.lostAt = performance.now();
       invalidate();
     };
-    const move = (e) => { pointer.x = e.clientX; pointer.y = e.clientY; pick(); };
-    const out = (e) => { if (!e.relatedTarget) { pointer.el = null; pointer.lostAt = 0; invalidate(); } };
-    const wake = pick;
+    const move = (e) => { pointer.x = e.clientX; pointer.y = e.clientY; pick(); ripple(); };
+    const out = (e) => { if (!e.relatedTarget) { pointer.el = null; pointer.lostAt = 0; ripple(); invalidate(); } };
+    const wake = () => { pick(); ripple(); };
     document.addEventListener("pointermove", move, { passive: true });
     document.addEventListener("pointerout", out);
     addEventListener("scroll", wake, { passive: true });
@@ -80,7 +110,7 @@ function Cap() {
 
   useFrame((_, dt) => {
     const s = st.current, g = group.current;
-    if (pointer.lostAt && performance.now() - pointer.lostAt > GAP_GRACE) { pointer.el = null; pointer.lostAt = 0; }
+    if (pointer.lostAt && performance.now() - pointer.lostAt > GAP_GRACE) { pointer.el = null; pointer.lostAt = 0; ripple(); }
     let el = pointer.el;
     if (el && !el.isConnected) el = pointer.el = null;  // grid was rebuilt by a poll
 
@@ -104,12 +134,14 @@ function Cap() {
           painted = paintFace(el, w, h);
           faces.set(key, painted);
         }
-        const { tex, edge } = painted;
-        face.current.material.map = tex;
-        face.current.material.needsUpdate = true;
-        body.current.material.color.set(edge);
-        if (s.lift < 0.02) {  // first lift: start exactly on the DOM key, no glide
+        const fresh = s.lift < 0.02;
+        if (fresh) {  // first lift: start exactly on the DOM key, no glide
           g.position.set(r.left + w / 2 - innerWidth / 2, innerHeight / 2 - r.top - h / 2, 0);
+          s.vx = s.vy = 0;
+          setFace(painted);
+        } else {
+          s.nextFace = painted;  // swap the label halfway across, not the instant it leaves
+          s.from = Math.hypot(r.left + w / 2 - innerWidth / 2 - g.position.x, innerHeight / 2 - r.top - h / 2 - g.position.y);
         }
         s.hidePending = true;  // hide the DOM key once the cap is over it
       }
@@ -125,20 +157,31 @@ function Cap() {
       ry = MathUtils.clamp((pointer.x - cx) / (r.width / 2), -1, 1) * TILT;
     }
     s.lift = MathUtils.damp(s.lift, s.el ? 1 : 0, RISE, dt);
-    g.position.x = MathUtils.damp(g.position.x, tx, GLIDE, dt);
-    g.position.y = MathUtils.damp(g.position.y, ty, GLIDE, dt);
+    // Spring toward the target in fixed substeps (stable even after an idle gap).
+    for (let left = Math.min(dt, 0.1); left > 0; left -= 1 / 240) {
+      const h = Math.min(left, 1 / 240);
+      s.vx += (STIFF * (tx - g.position.x) - DAMP * s.vx) * h;
+      s.vy += (STIFF * (ty - g.position.y) - DAMP * s.vy) * h;
+      g.position.x += s.vx * h;
+      g.position.y += s.vy * h;
+    }
+    if (s.nextFace && Math.hypot(tx - g.position.x, ty - g.position.y) < s.from / 2) {
+      setFace(s.nextFace);
+      s.nextFace = null;
+    }
     if (s.hidePending && s.el && Math.abs(g.position.x - tx) + Math.abs(g.position.y - ty) < 8) {
       s.el.classList.add("lifted");
       s.hidePending = false;
     }
-    g.position.z = s.lift * LIFT;
+    const speed = Math.hypot(s.vx, s.vy);
+    g.position.z = s.lift * (LIFT + Math.min(speed * 0.025, HOP));  // a gentle hop while travelling
     g.rotation.x = MathUtils.damp(g.rotation.x, rx * s.lift, TURN, dt);
     g.rotation.y = MathUtils.damp(g.rotation.y, ry * s.lift, TURN, dt);
     g.scale.setScalar(1 + (POP - 1) * s.lift);
     g.visible = s.lift > 0.01;
     light.current.position.set(pointer.x - innerWidth / 2, innerHeight / 2 - pointer.y, 160);
 
-    const moving = pointer.lostAt > 0 || s.hidePending || Math.abs(g.position.x - tx) + Math.abs(g.position.y - ty) > 0.3
+    const moving = pointer.lostAt > 0 || s.hidePending || speed > 1 || Math.abs(g.position.x - tx) + Math.abs(g.position.y - ty) > 0.3
       || Math.abs(s.lift - (s.el ? 1 : 0)) > 0.005
       || Math.abs(g.rotation.x - rx * s.lift) + Math.abs(g.rotation.y - ry * s.lift) > 0.002;
     if (moving) invalidate();
