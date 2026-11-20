@@ -1,0 +1,21 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Portmap · Sign in</title>
+<link rel="stylesheet" href="/style.css">
+</head>
+<body>
+<div class="login">
+  <form method="post" action="/login" autocomplete="on">
+    <div class="mark">port<i>map</i></div>
+    <p>Every listening port, every machine, one sheet.</p>
+    <label>Username <input name="username" autocomplete="username" required autofocus></label>
+    <label>Password <input name="password" type="password" autocomplete="current-password" required></label>
+    <div class="err" role="alert">{{ERR}}</div>
+    <button type="submit">Sign in</button>
+  </form>
+</div>
+</body>
+</html>

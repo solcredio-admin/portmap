@@ -1,0 +1,46 @@
+# portmap: dashboard + an agent for this same machine.
+#   cp .env.example .env   # fill in ADMIN_PASSWORD and AGENT_TOKEN
+#   docker compose up -d
+services:
+  portmap:
+    image: ghcr.io/solcredio-admin/portmap-server:latest
+    build: ./server
+    container_name: portmap
+    restart: unless-stopped
+    ports:
+      - "${BIND_ADDR:-127.0.0.1}:${PORTMAP_PORT:-8080}:8080"
+    environment:
+      ADMIN_USER: ${ADMIN_USER:-admin}
+      ADMIN_PASSWORD: ${ADMIN_PASSWORD:?set ADMIN_PASSWORD in .env}
+      AGENT_TOKEN: ${AGENT_TOKEN:?set AGENT_TOKEN in .env}
+      COOKIE_SECURE: ${COOKIE_SECURE:-0}
+      TRUST_PROXY: ${TRUST_PROXY:-0}
+    volumes:
+      - portmap-data:/data
+    cap_drop: [ALL]
+    security_opt: [no-new-privileges:true]
+    read_only: true
+    tmpfs: [/tmp]
+
+  portmap-agent:
+    image: ghcr.io/solcredio-admin/portmap-agent:latest
+    build: ./agent
+    container_name: portmap-agent
+    restart: unless-stopped
+    network_mode: host
+    pid: host
+    cap_drop: [ALL]
+    cap_add: [SYS_PTRACE, DAC_READ_SEARCH]
+    security_opt: [no-new-privileges:true, apparmor:unconfined]
+    read_only: true
+    environment:
+      SERVER_URL: http://${BIND_ADDR:-127.0.0.1}:${PORTMAP_PORT:-8080}
+      AGENT_TOKEN: ${AGENT_TOKEN}
+      HOST_NAME: ${HOST_NAME:-}
+    volumes:
+      - /var/run/docker.sock:/var/run/docker.sock:ro
+      - /etc/os-release:/host/os-release:ro
+    depends_on: [portmap]
+
+volumes:
+  portmap-data:

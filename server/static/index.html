@@ -1,0 +1,25 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Portmap</title>
+<link rel="stylesheet" href="/style.css">
+</head>
+<body>
+<header class="rail">
+  <div class="mark">port<i>map</i></div>
+  <div class="tally" id="tally">loading…</div>
+  <div class="probe">
+    <label for="probe">Probe</label>
+    <input id="probe" inputmode="numeric" maxlength="5" placeholder="8080" autocomplete="off">
+    <span class="probe-out" id="probe-out">type a port to check every host</span>
+  </div>
+  <label class="chk"><input type="checkbox" id="hide-local"> hide loopback</label>
+  <form method="post" action="/logout"><button class="out" type="submit">sign out</button></form>
+</header>
+<main id="cards"></main>
+<div class="ticket" id="ticket" hidden role="tooltip"></div>
+<script src="/app.js"></script>
+</body>
+</html>

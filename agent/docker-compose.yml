@@ -1,0 +1,20 @@
+# portmap agent: run on every other Linux machine.
+# Either edit the two CHANGE-ME values below, or put SERVER_URL / AGENT_TOKEN in a .env file next to this.
+services:
+  portmap-agent:
+    image: ghcr.io/solcredio-admin/portmap-agent:latest
+    container_name: portmap-agent
+    restart: unless-stopped
+    network_mode: host      # see the host's sockets
+    pid: host               # see the host's processes
+    cap_drop: [ALL]
+    cap_add: [SYS_PTRACE, DAC_READ_SEARCH]
+    security_opt: [no-new-privileges:true, apparmor:unconfined]
+    read_only: true
+    environment:
+      SERVER_URL: ${SERVER_URL:-http://CHANGE-ME:8080}
+      AGENT_TOKEN: ${AGENT_TOKEN:-CHANGE-ME}
+      HOST_NAME: ${HOST_NAME:-}
+    volumes:
+      - /var/run/docker.sock:/var/run/docker.sock:ro   # optional: shows container names. Remove to skip Docker.
+      - /etc/os-release:/host/os-release:ro
