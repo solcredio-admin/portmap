@@ -42,6 +42,7 @@ except (OSError, ValueError):
 PUBLIC = {
     "/style.css": ("style.css", "text/css; charset=utf-8"),
     "/theme.js": ("theme.js", "text/javascript; charset=utf-8"),
+    "/login.js": ("login.js", "text/javascript; charset=utf-8"),
     "/favicon.png": ("favicon.png", "image/png"),
     "/icon.png": ("icon.png", "image/png"),
     "/apple-touch-icon.png": ("apple-touch-icon.png", "image/png"),

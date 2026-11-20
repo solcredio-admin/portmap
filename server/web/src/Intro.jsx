@@ -5,8 +5,8 @@ import { Canvas, useFrame, useLoader, useThree } from "@react-three/fiber";
 import { Suspense, useEffect, useMemo, useRef, useState } from "react";
 import { TextureLoader, Vector2 } from "three";
 
-const MIN_SHOW = 1800;   // ms: long enough to see the effect, short enough not to annoy
-const MAX_WAIT = 5000;   // never hold the dashboard back on a slow /api/hosts
+const HOLD = 1300;       // ms of liquid motion before clearing out
+const MAX_WAIT = 5000;   // never hold the dashboard back (slow /api/hosts, no WebGL)
 const LEAVE = 800;       // ms: matches the .leave transition in style.css
 
 const vertex = /* glsl */ `void main() { gl_Position = vec4(position.xy, 0.0, 1.0); }`;
@@ -147,20 +147,22 @@ function Liquid({ onReady }) {
 
 export default function Intro({ onLeave, onDone }) {
   const [ready, setReady] = useState(false);
-  const [leaving, setLeaving] = useState(false);
+  const [loaded, setLoaded] = useState(() => !!window.pmLoaded);
+  const [held, setHeld] = useState(false);
+  const leaving = loaded && held;
 
   useEffect(() => {
-    const t0 = performance.now();
-    let timer;
-    const loaded = () => {
-      removeEventListener("pm:loaded", loaded);
-      clearTimeout(cap);
-      timer = setTimeout(() => setLeaving(true), Math.max(0, MIN_SHOW - (performance.now() - t0)));
-    };
-    const cap = setTimeout(loaded, MAX_WAIT);
-    if (window.pmLoaded) loaded(); else addEventListener("pm:loaded", loaded);
-    return () => { removeEventListener("pm:loaded", loaded); clearTimeout(cap); clearTimeout(timer); };
+    const onLoaded = () => setLoaded(true);
+    addEventListener("pm:loaded", onLoaded);
+    const cap = setTimeout(() => { setLoaded(true); setHeld(true); }, MAX_WAIT);
+    return () => { removeEventListener("pm:loaded", onLoaded); clearTimeout(cap); };
   }, []);
+
+  useEffect(() => {
+    if (!ready) return;
+    const t = setTimeout(() => setHeld(true), HOLD);
+    return () => clearTimeout(t);
+  }, [ready]);
 
   useEffect(() => {
     if (!leaving) return;
@@ -173,7 +175,7 @@ export default function Intro({ onLeave, onDone }) {
   return (
     <div className="intro-stage">
       <div className="liquid">
-        <img className={ready ? "gone" : ""} src="/logo.png" alt="" />
+        <img className={ready ? "gone" : ""} src="/logo.png" alt="" decoding="sync" />
         <Canvas flat linear dpr={[1, 2]} gl={{ antialias: false, alpha: true }}>
           <Suspense fallback={null}><Liquid onReady={() => setReady(true)} /></Suspense>
         </Canvas>

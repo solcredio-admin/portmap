@@ -4,7 +4,7 @@
 // is pointer-events: none and draws frames only while something is moving.
 import { Canvas, useFrame, useThree } from "@react-three/fiber";
 import { useEffect, useMemo, useRef } from "react";
-import { CanvasTexture, MathUtils, PlaneGeometry, SRGBColorSpace } from "three";
+import { CanvasTexture, LinearFilter, MathUtils, PlaneGeometry, SRGBColorSpace } from "three";
 import { RoundedBoxGeometry } from "three/examples/jsm/geometries/RoundedBoxGeometry.js";
 
 const DEPTH = 14, LIFT = 46, POP = 1.16, TILT = 0.42, EASE = 12;
@@ -14,7 +14,8 @@ const pointer = { x: -1e4, y: -1e4, el: null };
 function paintFace(el, w, h) {
   const cs = getComputedStyle(el), root = getComputedStyle(document.documentElement);
   const edge = root.getPropertyValue(el.classList.contains("local") ? "--cap-edge" : "--key-edge").trim();
-  const s = 2, c = document.createElement("canvas");
+  // Lifted, popped and seen in perspective, the cap shows ~1.3x its size: paint well above screen density.
+  const s = Math.min(4, Math.ceil(devicePixelRatio * 2)), c = document.createElement("canvas");
   c.width = w * s; c.height = h * s;
   const g = c.getContext("2d");
   g.scale(s, s);
@@ -32,6 +33,9 @@ function paintFace(el, w, h) {
   g.fillText(label, 10, h - 13);
   const tex = new CanvasTexture(c);
   tex.colorSpace = SRGBColorSpace;
+  tex.generateMipmaps = false;  // mipmaps soften small text; the cap is never minified much
+  tex.minFilter = LinearFilter;
+  tex.anisotropy = 8;
   return { tex, edge };
 }
 

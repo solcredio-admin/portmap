@@ -274,16 +274,29 @@ html.intro #intro {
   transition: opacity .8s cubic-bezier(.7, 0, .3, 1);
 }
 html.intro body { overflow: hidden; }
-.intro-stage { display: grid; justify-items: center; gap: 22px; }
-.liquid { position: relative; width: min(56vmin, 320px); aspect-ratio: 1; transition: transform .8s cubic-bezier(.7, 0, .3, 1), opacity .8s ease; }
+/* Logo dead-centre (the login transition lands it exactly here); caption hangs below. */
+.intro-stage { position: relative; display: grid; justify-items: center; }
+.liquid { position: relative; width: min(56vmin, 320px); aspect-ratio: 1; transition: transform .8s cubic-bezier(.65, 0, .35, 1), opacity .7s ease-in; }
 .liquid img, .liquid canvas { position: absolute; inset: 0; width: 100% !important; height: 100% !important; }
-.liquid img { transition: opacity .4s ease; }
+/* Compositor-only breathing: keeps moving while the bundle parses and shaders compile. */
+.liquid img { animation: breathe-logo 2.4s ease-in-out infinite; transition: opacity .6s ease; }
 .liquid img.gone { opacity: 0; }
-.intro-stage .cap { animation: breathe 1.6s ease-in-out infinite; }
-#intro.leave { opacity: 0; }
-#intro.leave .liquid { transform: scale(4); opacity: 0; }
-#intro.leave .cap { opacity: 0; animation: none; }
+.intro-stage .cap {
+  position: absolute; top: 100%; left: 50%; margin-top: 26px; white-space: nowrap;
+  transform: translateX(-50%); opacity: 0;
+  animation: cap-in .6s ease .3s forwards, breathe 1.8s ease-in-out .9s infinite;
+}
+#intro.leave { opacity: 0; transition-delay: .12s; }
+#intro.leave .liquid { transform: scale(1.35); opacity: 0; }
+#intro.leave .cap { opacity: 0; animation: none; transition: opacity .3s; }
 @keyframes breathe { 50% { opacity: .35; } }
+@keyframes cap-in { to { opacity: 1; } }
+@keyframes breathe-logo { 50% { transform: scale(1.03); } }
+
+/* Login → intro: curtain dims the page while the logo flies to centre (login.js). */
+.curtain { position: fixed; inset: 0; z-index: 40; background: var(--bg); opacity: 0; transition: opacity .75s cubic-bezier(.65, 0, .35, 1); }
+.fly { position: fixed; z-index: 41; transform-origin: center; transition: transform .75s cubic-bezier(.65, 0, .35, 1); }
+html.leaving .login form > :not(.logo) { opacity: 0; transform: translateY(6px); transition: opacity .3s ease, transform .3s ease; }
 
 /* the dashboard rises in once the intro clears */
 body.reveal .hero, body.reveal .host { animation: rise .9s cubic-bezier(.2, .7, .2, 1) both; }
