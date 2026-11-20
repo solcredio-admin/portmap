@@ -5,7 +5,8 @@ import { Canvas, useFrame, useLoader, useThree } from "@react-three/fiber";
 import { Suspense, useEffect, useMemo, useRef, useState } from "react";
 import { TextureLoader, Vector2 } from "three";
 
-const HOLD = 1300;       // ms of liquid motion before clearing out
+const AWAKEN = 1.2;      // s: the plain logo melts into liquid metal
+const HOLD = 1900;       // ms from first frame (incl. AWAKEN) before clearing out
 const MAX_WAIT = 5000;   // never hold the dashboard back (slow /api/hosts, no WebGL)
 const LEAVE = 800;       // ms: matches the .leave transition in style.css
 
@@ -16,6 +17,7 @@ precision highp float;
 uniform vec2 u_resolution;
 uniform float u_time;
 uniform sampler2D u_logo;
+uniform float u_mix;   // 0 = the plain logo (pixel-identical to the PNG), 1 = full liquid metal
 
 #define SPEED 0.44
 #define ITER 8.0
@@ -29,7 +31,7 @@ uniform sampler2D u_logo;
 #define COLOR_SHIFT 0.1
 #define NOISE 4.0
 #define INTERACT 0.1
-#define LOGO_SCALE 0.92
+#define LOGO_SCALE 1.0   // same footprint as the <img> it replaces
 
 float random(vec2 st) { return fract(sin(dot(st, vec2(12.9898, 78.233))) * 43758.5453123); }
 vec3 mod289(vec3 x) { return x - floor(x * (1.0 / 289.0)) * 289.0; }
@@ -121,7 +123,7 @@ void main() {
   vec4 col = mix(o, vec4(o.rgb * 0.8 + 0.2, alpha), 0.3);
   col.rgb += pow(edge * 1.2, 4.0) * vec3(0.6, 0.7, 0.8);
   col.a = min(col.a + 0.4, 1.0);
-  gl_FragColor = col;
+  gl_FragColor = mix(texture2D(u_logo, uv), col, u_mix);
 }`;
 
 function Liquid({ onReady }) {
@@ -129,13 +131,15 @@ function Liquid({ onReady }) {
   const size = useThree((s) => s.size);
   const dpr = useThree((s) => s.viewport.dpr);
   const uniforms = useMemo(() => ({
-    u_time: { value: 0 }, u_resolution: { value: new Vector2() }, u_logo: { value: logo },
+    u_time: { value: 0 }, u_resolution: { value: new Vector2() }, u_logo: { value: logo }, u_mix: { value: 0 },
   }), [logo]);
-  const first = useRef(true);
+  const start = useRef(null);
   useFrame(({ clock }) => {
     uniforms.u_time.value = clock.elapsedTime;
+    if (start.current === null) { start.current = clock.elapsedTime; onReady(); }
+    const t = Math.min((clock.elapsedTime - start.current) / AWAKEN, 1);
+    uniforms.u_mix.value = t * t * (3 - 2 * t);  // smoothstep
     uniforms.u_resolution.value.set(size.width * dpr, size.height * dpr);
-    if (first.current) { first.current = false; onReady(); }
   });
   return (
     <mesh frustumCulled={false}>
@@ -176,7 +180,7 @@ export default function Intro({ onLeave, onDone }) {
     <div className="intro-stage">
       <div className="liquid">
         <img className={ready ? "gone" : ""} src="/logo.png" alt="" decoding="sync" />
-        <Canvas flat linear dpr={[1, 2]} gl={{ antialias: false, alpha: true }}>
+        <Canvas flat linear dpr={[1, 2]} resize={{ offsetSize: true }} gl={{ antialias: false, alpha: true }}>
           <Suspense fallback={null}><Liquid onReady={() => setReady(true)} /></Suspense>
         </Canvas>
       </div>

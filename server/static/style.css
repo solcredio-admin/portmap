@@ -276,10 +276,12 @@ html.intro #intro {
 html.intro body { overflow: hidden; }
 /* Logo dead-centre (the login transition lands it exactly here); caption hangs below. */
 .intro-stage { position: relative; display: grid; justify-items: center; }
-.liquid { position: relative; width: min(56vmin, 320px); aspect-ratio: 1; transition: transform .8s cubic-bezier(.65, 0, .35, 1), opacity .7s ease-in; }
+.intro-stage { transition: transform .8s cubic-bezier(.65, 0, .35, 1), opacity .7s ease-in; }
+/* Breathing on the container so the PNG and the WebGL logo that replaces it move as one. */
+.liquid { position: relative; width: min(56vmin, 320px); aspect-ratio: 1; animation: breathe-logo 2.4s ease-in-out infinite; }
 .liquid img, .liquid canvas { position: absolute; inset: 0; width: 100% !important; height: 100% !important; }
 /* Compositor-only breathing: keeps moving while the bundle parses and shaders compile. */
-.liquid img { animation: breathe-logo 2.4s ease-in-out infinite; transition: opacity .6s ease; }
+.liquid img { transition: opacity .15s linear; }  /* first WebGL frame is the same picture */
 .liquid img.gone { opacity: 0; }
 .intro-stage .cap {
   position: absolute; top: 100%; left: 50%; margin-top: 26px; white-space: nowrap;
@@ -287,7 +289,7 @@ html.intro body { overflow: hidden; }
   animation: cap-in .6s ease .3s forwards, breathe 1.8s ease-in-out .9s infinite;
 }
 #intro.leave { opacity: 0; transition-delay: .12s; }
-#intro.leave .liquid { transform: scale(1.35); opacity: 0; }
+#intro.leave .intro-stage { transform: scale(1.35); opacity: 0; }
 #intro.leave .cap { opacity: 0; animation: none; transition: opacity .3s; }
 @keyframes breathe { 50% { opacity: .35; } }
 @keyframes cap-in { to { opacity: 1; } }

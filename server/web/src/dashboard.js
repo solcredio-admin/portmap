@@ -56,7 +56,7 @@ function tick(seg, pct, cls) {
 }
 
 function render() {
-  hideTicket();
+  hideTicketSoon();
   const probe = probePort();
   const root = $("cards");
   root.replaceChildren();
@@ -107,8 +107,8 @@ function render() {
       const show = () => showTicket(b, h, p);
       b.addEventListener("mouseenter", show);
       b.addEventListener("focus", show);
-      b.addEventListener("mouseleave", hideTicket);
-      b.addEventListener("blur", hideTicket);
+      b.addEventListener("mouseleave", hideTicketSoon);
+      b.addEventListener("blur", hideTicketSoon);
       keys.append(b);
     }
     panel.append(keys);
@@ -139,6 +139,7 @@ function renderProbe(probe, hosts) {
 }
 
 function showTicket(anchor, h, p) {
+  clearTimeout(hideTimer);
   const tk = $("ticket");
   tk.replaceChildren();
   tk.append(el("div", "cap", `${h.host} · ${p.proto} · ${p.exposed ? "exposed" : "loopback only"}`));
@@ -165,7 +166,10 @@ function showTicket(anchor, h, p) {
   const r = anchor.getBoundingClientRect();
   tk.classList.toggle("top", r.bottom > innerHeight - tk.offsetHeight - 40);
 }
-function hideTicket() { $("ticket").hidden = true; }
+// Closing waits a beat: gliding onto the next key keeps the card up and only swaps its contents.
+let hideTimer = 0;
+function hideTicketSoon() { clearTimeout(hideTimer); hideTimer = setTimeout(hideTicket, 220); }
+function hideTicket() { clearTimeout(hideTimer); $("ticket").hidden = true; }
 
 async function load() {
   try {
