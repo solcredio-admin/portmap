@@ -9,6 +9,7 @@ INTERVAL = int(os.environ.get("INTERVAL", "15"))  # the server can slow this dow
 RESCAN_EVERY = 300  # full process + Docker rescan even if sockets look unchanged
 DOCKER_SOCK = os.environ.get("DOCKER_SOCK", "/var/run/docker.sock")
 PROC = os.environ.get("PROC", "/proc")
+SEND_CMDLINE = os.environ.get("SEND_CMDLINE", "1") != "0"  # command lines can contain secrets; 0 sends names only
 VERSION = "1.1"
 
 
@@ -64,7 +65,7 @@ def procs_by_inode(inodes):
                         uid = next(l.split()[1] for l in open(f"{PROC}/{pid}/status") if l.startswith("Uid:"))
                     except (OSError, StopIteration):
                         name, cmd, uid = "?", "", ""
-                    hit = {"pid": int(pid), "name": name, "cmd": cmd[:300], "uid": uid}
+                    hit = {"pid": int(pid), "name": name, "cmd": cmd[:300] if SEND_CMDLINE else "", "uid": uid}
                 found.setdefault(link[8:-1], []).append(hit)
     return found
 

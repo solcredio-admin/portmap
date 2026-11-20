@@ -42,6 +42,7 @@ services:
       SERVER_URL: http://${BIND_ADDR:-127.0.0.1}:${PORTMAP_PORT:-8080}
       AGENT_TOKEN: ${AGENT_TOKEN:?set AGENT_TOKEN in .env}
       HOST_NAME: ${HOST_NAME:-}
+      SEND_CMDLINE: ${SEND_CMDLINE:-1}
     volumes:
       - /var/run/docker.sock:/var/run/docker.sock:ro
       - /etc/os-release:/host/os-release:ro

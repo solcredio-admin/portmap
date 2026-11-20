@@ -1,4 +1,6 @@
-@import url("https://fonts.googleapis.com/css2?family=Cormorant+Garamond:ital,wght@0,300;0,400;1,300&family=Roboto+Mono:wght@400;500&display=swap");
+/* Fonts are self-hosted (SIL OFL 1.1, see fonts/): no third-party requests from the browser. */
+@font-face { font-family: "Cormorant Garamond"; src: url("/fonts/cormorant-garamond.woff2") format("woff2"); font-weight: 300 700; font-display: swap; }
+@font-face { font-family: "Roboto Mono"; src: url("/fonts/roboto-mono.woff2") format("woff2"); font-weight: 100 700; font-display: swap; }
 
 /* Editorial quiet: white page, one large serif statement, tiny mono captions,
    and each machine as a dark panel of keycaps. */
@@ -22,9 +24,16 @@
 @media (prefers-color-scheme: dark) {
   :root:not([data-theme="light"]) {
     --bg: #000000; --ink: #f2f2f2; --muted: #7a7a7a; --line: #1f1f1f;
-    --panel: #121212; --panel-line: #242424;
+    --panel: #121212; --panel-line: #242424; --free: var(--key);
   }
 }
+:root[data-theme="dark"] {
+  --bg: #000000; --ink: #f2f2f2; --muted: #7a7a7a; --line: #1f1f1f;
+  --panel: #121212; --panel-line: #242424; --free: var(--key);
+}
+:root { color-scheme: light; }
+:root[data-theme="dark"] { color-scheme: dark; }
+@media (prefers-color-scheme: dark) { :root:not([data-theme="light"]) { color-scheme: dark; } }
 
 * { box-sizing: border-box; }
 html, body { margin: 0; }
@@ -72,9 +81,8 @@ button, input { font: inherit; color: inherit; }
 }
 .hero input::placeholder { color: var(--line); }
 .answer b { color: var(--ink); font-weight: 500; }
-.answer .free { color: #4d8f00; }
+.answer .free { color: var(--free, #4d8f00); }
 .answer .taken { color: var(--warn); }
-@media (prefers-color-scheme: dark) { :root:not([data-theme="light"]) .answer .free { color: var(--key); } }
 
 /* ---------- machines ---------- */
 main { display: grid; gap: 96px; padding: 0 8px 120px; }
@@ -89,7 +97,7 @@ main { display: grid; gap: 96px; padding: 0 8px 120px; }
   border: 1px solid var(--ink); border-radius: 999px; padding: 3px 10px;
   font: 500 10px/1.4 var(--mono); text-transform: uppercase;
 }
-.pill.free { border-color: #4d8f00; color: #4d8f00; }
+.pill.free { border-color: var(--free, #4d8f00); color: var(--free, #4d8f00); }
 .pill.taken { border-color: var(--warn); color: var(--warn); }
 
 .panel {
@@ -163,3 +171,12 @@ main { display: grid; gap: 96px; padding: 0 8px 120px; }
   .legend span:nth-child(3) { visibility: hidden; }
 }
 .hero h1, .ticket h3, .host-head h2 { font-variant-numeric: lining-nums; }
+
+/* theme toggle, bottom left */
+.theme-toggle {
+  position: fixed; left: 16px; bottom: 14px; z-index: 6;
+  color: var(--muted); padding: 6px 0;
+}
+.theme-toggle:hover, .theme-toggle:focus-visible { color: var(--ink); outline: none; }
+
+.login .logo { width: 72px; height: 72px; justify-self: center; margin-bottom: -6px; }

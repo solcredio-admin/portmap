@@ -38,6 +38,17 @@ try:
 except (OSError, ValueError):
     pass
 
+# Served without login: what the sign-in page itself needs.
+PUBLIC = {
+    "/style.css": ("style.css", "text/css; charset=utf-8"),
+    "/theme.js": ("theme.js", "text/javascript; charset=utf-8"),
+    "/favicon.png": ("favicon.png", "image/png"),
+    "/icon.png": ("icon.png", "image/png"),
+    "/apple-touch-icon.png": ("apple-touch-icon.png", "image/png"),
+    "/fonts/cormorant-garamond.woff2": ("fonts/cormorant-garamond.woff2", "font/woff2"),
+    "/fonts/roboto-mono.woff2": ("fonts/roboto-mono.woff2", "font/woff2"),
+}
+
 HOST_RE = re.compile(r"^[A-Za-z0-9._-]{1,64}$")
 
 def _s(v, n=200):
@@ -100,8 +111,7 @@ class H(BaseHTTPRequestHandler):
         self.send_header("Content-Type", ctype)
         self.send_header("Content-Length", str(len(body)))
         self.send_header("Content-Security-Policy",
-                         "default-src 'self'; style-src 'self' https://fonts.googleapis.com; "
-                         "font-src https://fonts.gstatic.com; frame-ancestors 'none'; base-uri 'none'; form-action 'self'")
+                         "default-src 'self'; frame-ancestors 'none'; base-uri 'none'; form-action 'self'")
         self.send_header("X-Content-Type-Options", "nosniff")
         self.send_header("X-Frame-Options", "DENY")
         self.send_header("Referrer-Policy", "no-referrer")
@@ -137,8 +147,8 @@ class H(BaseHTTPRequestHandler):
         path = urlparse(self.path).path
         if path == "/healthz":
             return self.send(200, "ok")
-        if path == "/style.css":
-            return self.static("style.css", "text/css; charset=utf-8")
+        if path in PUBLIC:
+            return self.static(*PUBLIC[path])
         if path == "/login":
             if self.authed():
                 return self.send(303, headers=[("Location", "/")])

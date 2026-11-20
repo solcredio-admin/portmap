@@ -19,6 +19,7 @@ services:
       SERVER_URL: ${SERVER_URL:?set SERVER_URL in .env}
       AGENT_TOKEN: ${AGENT_TOKEN:?set AGENT_TOKEN in .env}
       HOST_NAME: ${HOST_NAME:-}
+      SEND_CMDLINE: ${SEND_CMDLINE:-1}
     volumes:
       - /var/run/docker.sock:/var/run/docker.sock:ro   # optional: shows container names. Remove to skip Docker.
       - /etc/os-release:/host/os-release:ro

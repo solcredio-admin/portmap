@@ -1,3 +1,5 @@
+<p align="center"><img src="docs/logo.png" width="120" alt="portmap logo"></p>
+
 # portmap
 
 **Every listening port, on every Linux machine, on one page.**
@@ -69,6 +71,7 @@ All `.env` settings:
 | `COOKIE_SECURE` | `0` | `1` when served over HTTPS |
 | `TRUST_PROXY` | `0` | `1` only behind a reverse proxy that sets `X-Forwarded-For` |
 | `HOST_NAME` | hostname | name shown for this machine |
+| `SEND_CMDLINE` | `1` | `0` sends process names only, not full command lines |
 
 Start it:
 
@@ -93,6 +96,7 @@ Edit `.env`:
 SERVER_URL=http://100.x.y.z:8080     # the dashboard, as this machine reaches it
 AGENT_TOKEN=same-token-as-the-dashboard
 HOST_NAME=                           # optional; defaults to the hostname
+SEND_CMDLINE=1                       # optional; 0 = process names only
 ```
 
 Start it:
@@ -134,3 +138,25 @@ Compose can't run without the required values: it stops with `set ADMIN_PASSWORD
 - **Resource caps:** each container is capped at 64 MB of memory and a fraction of one CPU, with logs capped at 2 MB. Typical use is about 20 MB and well under 1% CPU.
 - Ports that Docker publishes through iptables only (`userland-proxy: false`) are still detected through the Docker API.
 - If an auto-updater (WUD, Watchtower, Tugtainer) manages your hosts, it will update the agent image like any other container.
+
+## Privacy and data protection
+
+portmap is self-hosted. Whoever runs it is the data controller (GDPR and similar laws); the authors receive nothing.
+
+- **No telemetry, analytics or tracking.** Nothing is sent anywhere except from your agents to your own dashboard.
+- **No third-party requests from the browser.** Fonts and icons are served by the dashboard itself, so visitors' IP addresses never go to Google or a CDN.
+- **One strictly necessary cookie:** `pm_session`, which keeps you signed in. It's exempt from consent requirements (EU ePrivacy Directive Art. 5(3)), so no cookie banner is needed. A `localStorage` entry also remembers your theme and loopback filter on your own device.
+- **What's processed:** hostnames, IP addresses, port numbers, process names, user IDs, process command lines and Docker container names from your machines, plus failed-login IP addresses (in memory for 15 minutes). Command lines can contain usernames or secrets, so set `SEND_CMDLINE=0` on an agent to send process names only.
+- **Retention:** only the latest snapshot per machine is kept (in the `portmap-data` volume). Delete a machine's data by removing that volume.
+- **Logs:** the dashboard logs requests with the client IP to the container log, capped at 2 MB.
+
+## License
+
+[MIT](LICENSE). You may use, modify and redistribute it, including commercially, as long as you keep the copyright and license notice. It comes with **no warranty**.
+
+Bundled fonts are under the SIL Open Font License 1.1; see [THIRD_PARTY_NOTICES.md](THIRD_PARTY_NOTICES.md).
+
+Report vulnerabilities privately as described in [SECURITY.md](SECURITY.md).
+
+The software uses only standard, publicly available cryptography from the Python standard library (password hashing and random tokens). As publicly available open source, it's generally outside export-control licensing requirements; check your local rules if you redistribute it in restricted jurisdictions.
+
