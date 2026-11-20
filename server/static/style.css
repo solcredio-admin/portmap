@@ -12,17 +12,18 @@
   --line: rgba(11, 12, 10, .12);
   --glass: rgba(250, 248, 242, .42);
   --glass-strong: rgba(250, 248, 242, .74);
-  --panel: rgba(12, 13, 11, .84);
+  --panel: rgba(255, 255, 255, .5);     /* light mode: frosted slab, no dark block */
+  --ring: rgba(11, 12, 10, .75);         /* hover/probe outline on a key */
   --rim: rgba(255, 255, 255, .75);       /* liquid-glass edge light (top) */
   --rim-soft: rgba(255, 255, 255, .22);  /* and its faint return (bottom) */
   --sheen: rgba(255, 255, 255, .30);
-  --panel-line: #2a2c27;
+  --panel-line: rgba(11, 12, 10, .14);
   --key: #c6f36b;        /* exposed */
   --key-ink: #0b0f05;
   --key-edge: #9fcc45;
-  --cap: #ececea;        /* loopback only */
+  --cap: #e1e0da;        /* loopback only */
   --cap-ink: #3a3a3a;
-  --cap-edge: #c9c9c6;
+  --cap-edge: #b9b8b1;
   --warn: #e8431c;
   --free: #3f7a00;
   /* Fallback when WebGL is off, and the login page's still version of the gradient. */
@@ -36,7 +37,7 @@
   :root:not([data-theme="light"]) {
     --bg: #050607; --ink: #f1f2ee; --muted: #8d9188; --line: rgba(241, 242, 238, .12);
     --glass: rgba(10, 11, 12, .34); --glass-strong: rgba(14, 15, 16, .72);
-    --panel: rgba(4, 5, 6, .72);
+    --panel: rgba(4, 5, 6, .72); --ring: rgba(255, 255, 255, .85);
     --rim: rgba(255, 255, 255, .24); --rim-soft: rgba(255, 255, 255, .06); --sheen: rgba(255, 255, 255, .07); --panel-line: #24262a; --free: var(--key); --warn: #ff6a45;
     --field: radial-gradient(60% 70% at 18% 20%, #2c4207 0%, transparent 70%),
              radial-gradient(55% 60% at 85% 75%, #182452 0%, transparent 70%), #050607;
@@ -45,7 +46,7 @@
 :root[data-theme="dark"] {
   --bg: #050607; --ink: #f1f2ee; --muted: #8d9188; --line: rgba(241, 242, 238, .12);
   --glass: rgba(10, 11, 12, .34); --glass-strong: rgba(14, 15, 16, .72);
-  --panel: rgba(4, 5, 6, .72);
+  --panel: rgba(4, 5, 6, .72); --ring: rgba(255, 255, 255, .85);
   --rim: rgba(255, 255, 255, .24); --rim-soft: rgba(255, 255, 255, .06); --sheen: rgba(255, 255, 255, .07); --panel-line: #24262a; --free: var(--key); --warn: #ff6a45;
   --field: radial-gradient(60% 70% at 18% 20%, #2c4207 0%, transparent 70%),
            radial-gradient(55% 60% at 85% 75%, #182452 0%, transparent 70%), #050607;
@@ -146,9 +147,9 @@ main { display: grid; gap: 40px; padding: 0 16px 140px; max-width: 1240px; margi
 .strip { display: grid; grid-template-columns: 30fr 55fr 15fr; gap: 6px; }
 .seg { position: relative; height: 22px; border-bottom: 1px solid var(--panel-line); }
 .seg span { position: absolute; bottom: 0; width: 1px; height: 12px; background: var(--key); }
-.seg span.local { background: #6b6b6b; height: 7px; }
-.seg span.hit { background: #fff; width: 2px; height: 22px; }
-.legend { display: grid; grid-template-columns: 30fr 55fr 15fr; gap: 6px; margin-top: 6px; color: #6a6d66; font-size: 10px; text-transform: uppercase; }
+.seg span.local { background: var(--muted); height: 7px; }
+.seg span.hit { background: var(--ink); width: 2px; height: 22px; }
+.legend { display: grid; grid-template-columns: 30fr 55fr 15fr; gap: 6px; margin-top: 6px; color: var(--muted); font-size: 10px; text-transform: uppercase; }
 
 /* keycaps */
 .keys { margin-top: 28px; display: grid; grid-template-columns: repeat(auto-fill, minmax(92px, 1fr)); gap: 10px; }
@@ -162,15 +163,15 @@ main { display: grid; gap: 40px; padding: 0 16px 140px; max-width: 1240px; margi
 }
 .key:hover, .key:focus-visible {
   transform: translateY(2px); outline: none;
-  box-shadow: inset 0 -2px 0 var(--key-edge), 0 0 0 2px rgba(255,255,255,.85);
+  box-shadow: inset 0 -2px 0 var(--key-edge), 0 0 0 2px var(--ring);
 }
 .key .n { font: 500 17px/1 var(--mono); letter-spacing: -0.02em; }
 .key .l { font: 400 10px/1.2 var(--mono); opacity: .7; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .key .p { position: absolute; top: 9px; right: 9px; font: 500 8.5px/1 var(--mono); text-transform: uppercase; opacity: .5; }
 .key.local { background: var(--cap); color: var(--cap-ink); box-shadow: inset 0 -4px 0 var(--cap-edge); }
-.key.local:hover, .key.local:focus-visible { box-shadow: inset 0 -2px 0 var(--cap-edge), 0 0 0 2px rgba(255,255,255,.85); }
+.key.local:hover, .key.local:focus-visible { box-shadow: inset 0 -2px 0 var(--cap-edge), 0 0 0 2px var(--ring); }
 .key.dim { opacity: .18; }
-.key.hit { box-shadow: inset 0 -2px 0 var(--key-edge), 0 0 0 2px #fff; transform: translateY(2px); }
+.key.hit { box-shadow: inset 0 -2px 0 var(--key-edge), 0 0 0 2px var(--ring); transform: translateY(2px); }
 
 /* ---------- hover card ---------- */
 .ticket {
