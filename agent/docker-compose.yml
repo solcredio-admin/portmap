@@ -5,6 +5,10 @@ services:
     image: ghcr.io/solcredio-admin/portmap-agent:latest
     container_name: portmap-agent
     restart: unless-stopped
+    mem_limit: 64m
+    cpus: 0.25
+    pids_limit: 16
+    logging: {driver: json-file, options: {max-size: 1m, max-file: "2"}}
     network_mode: host      # see the host's sockets
     pid: host               # see the host's processes
     cap_drop: [ALL]

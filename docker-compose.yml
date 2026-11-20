@@ -5,6 +5,10 @@ services:
     image: ghcr.io/solcredio-admin/portmap-server:latest
     container_name: portmap
     restart: unless-stopped
+    mem_limit: 64m
+    cpus: 0.5
+    pids_limit: 64
+    logging: {driver: json-file, options: {max-size: 1m, max-file: "2"}}
     ports:
       - "${BIND_ADDR:-127.0.0.1}:${PORTMAP_PORT:-8080}:8080"
     environment:
@@ -24,6 +28,10 @@ services:
     image: ghcr.io/solcredio-admin/portmap-agent:latest
     container_name: portmap-agent
     restart: unless-stopped
+    mem_limit: 64m
+    cpus: 0.25
+    pids_limit: 16
+    logging: {driver: json-file, options: {max-size: 1m, max-file: "2"}}
     network_mode: host
     pid: host
     cap_drop: [ALL]

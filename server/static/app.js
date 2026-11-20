@@ -1,6 +1,6 @@
 // All agent data is untrusted: build DOM with textContent only, never innerHTML.
 const $ = (id) => document.getElementById(id);
-const STALE_AFTER = 60;
+const STALE_AFTER = 150;  // > the agents' 60s idle interval, so waking the page doesn't flash everything stale
 let data = { now: 0, hosts: [] };
 let hideLocal = false;
 try { hideLocal = localStorage.getItem("pm-hide-local") === "1"; } catch {}
@@ -192,5 +192,9 @@ $("hide-local").addEventListener("click", () => {
 });
 addEventListener("scroll", hideTicket, { passive: true });
 
-load();
-setInterval(load, 10000);
+// Poll only while the tab is visible; refresh as soon as it comes back.
+let timer = null;
+function startPolling() { if (!timer) { load(); timer = setInterval(load, 10000); } }
+function stopPolling() { clearInterval(timer); timer = null; }
+document.addEventListener("visibilitychange", () => (document.hidden ? stopPolling() : startPolling()));
+if (!document.hidden) startPolling();

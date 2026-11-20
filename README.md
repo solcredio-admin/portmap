@@ -129,6 +129,8 @@ Compose can't run without the required values: it stops with `set ADMIN_PASSWORD
 
 ## Notes
 
-- Machines that stop reporting fade out after 60 seconds. They stay listed until the server's data volume is cleared.
+- Machines that stop reporting fade out after 150 seconds. They stay listed until the server's data volume is cleared.
+- **Idle mode:** while nobody has opened the dashboard for 5 minutes, agents report every 60s instead of every 15s, and they speed back up once someone looks. Agents only re-walk processes and query Docker when a socket opens or closes (plus a full rescan every 5 minutes). The browser stops polling while the tab is hidden.
+- **Resource caps:** each container is capped at 64 MB of memory and a fraction of one CPU, with logs capped at 2 MB. Typical use is about 20 MB and well under 1% CPU.
 - Ports that Docker publishes through iptables only (`userland-proxy: false`) are still detected through the Docker API.
 - If an auto-updater (WUD, Watchtower, Tugtainer) manages your hosts, it will update the agent image like any other container.

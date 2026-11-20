@@ -5,10 +5,11 @@ import http.client, ipaddress, json, os, platform, socket, struct, sys, time, ur
 SERVER_URL = os.environ.get("SERVER_URL", "").rstrip("/")
 AGENT_TOKEN = os.environ.get("AGENT_TOKEN", "")
 HOST_NAME = os.environ.get("HOST_NAME") or socket.gethostname()
-INTERVAL = int(os.environ.get("INTERVAL", "15"))
+INTERVAL = int(os.environ.get("INTERVAL", "15"))  # the server can slow this down while nobody watches
+RESCAN_EVERY = 300  # full process + Docker rescan even if sockets look unchanged
 DOCKER_SOCK = os.environ.get("DOCKER_SOCK", "/var/run/docker.sock")
 PROC = os.environ.get("PROC", "/proc")
-VERSION = "1.0"
+VERSION = "1.1"
 
 
 def hex_addr(h):
@@ -101,8 +102,16 @@ def is_exposed(addr):
     return not ipaddress.ip_address(addr).is_loopback
 
 
+_cache = {"key": None, "at": 0.0, "ports": []}
+
+
 def collect():
     socks = sockets()
+    # Reading /proc/net is cheap; walking every process and asking Docker is not. Skip both
+    # while the socket set is unchanged.
+    key = frozenset(socks.items())
+    if key == _cache["key"] and time.monotonic() - _cache["at"] < RESCAN_EVERY:
+        return _cache["ports"]
     owners = procs_by_inode(set(socks))
     dock = docker_ports()
     merged = {}
@@ -123,7 +132,9 @@ def collect():
     for e in merged.values():
         e["exposed"] = any(is_exposed(a) for a in e["addrs"])
         e.setdefault("container", None)
-    return sorted(merged.values(), key=lambda e: (e["port"], e["proto"]))
+    ports = sorted(merged.values(), key=lambda e: (e["port"], e["proto"]))
+    _cache.update(key=key, at=time.monotonic(), ports=ports)
+    return ports
 
 
 def host_info():
@@ -144,21 +155,30 @@ def host_info():
 def push(report):
     req = urllib.request.Request(f"{SERVER_URL}/api/report", data=json.dumps(report).encode(), method="POST",
                                  headers={"Authorization": f"Bearer {AGENT_TOKEN}", "Content-Type": "application/json"})
-    urllib.request.urlopen(req, timeout=10).read()
+    body = urllib.request.urlopen(req, timeout=10).read()
+    try:
+        return max(5, min(600, int(json.loads(body)["interval"])))
+    except (ValueError, KeyError, TypeError):
+        return INTERVAL
 
 
 def main():
     if not SERVER_URL or not AGENT_TOKEN:
         raise SystemExit("SERVER_URL and AGENT_TOKEN are required")
     print(f"portmap agent {VERSION} -> {SERVER_URL} as {HOST_NAME}", flush=True)
+    interval, last = INTERVAL, None
     while True:
         try:
             ports = collect()
-            push({"host": HOST_NAME, "ports": ports, "agent": VERSION, **host_info()})
-            print(f"pushed {len(ports)} ports", flush=True)
+            new = push({"host": HOST_NAME, "ports": ports, "agent": VERSION, **host_info()})
+            state = (len(ports), new)
+            if state != last:  # log changes only, not every heartbeat
+                print(f"reporting {len(ports)} ports every {new}s", flush=True)
+            interval, last = new, state
         except Exception as e:  # keep looping; server may be restarting
             print(f"push failed: {e}", file=sys.stderr, flush=True)
-        time.sleep(INTERVAL)
+            interval, last = INTERVAL, None
+        time.sleep(interval)
 
 
 if __name__ == "__main__":

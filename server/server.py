@@ -11,6 +11,8 @@ COOKIE_SECURE = os.environ.get("COOKIE_SECURE", "0") == "1"
 DATA_FILE = os.environ.get("DATA_FILE", "/data/hosts.json")
 TRUST_PROXY = os.environ.get("TRUST_PROXY", "0") == "1"
 SESSION_TTL = 12 * 3600
+ACTIVE_INTERVAL, IDLE_INTERVAL = 15, 60   # agent report interval while watched / idle
+IDLE_AFTER = 300                          # dashboard unviewed this long = idle
 STATIC = os.path.join(os.path.dirname(os.path.abspath(__file__)), "static")
 
 if len(ADMIN_PASSWORD) < 12:
@@ -28,6 +30,8 @@ lock = threading.Lock()
 sessions = {}   # token -> expiry
 failures = {}   # ip -> [timestamps]
 hosts = {}      # name -> report
+last_view = 0.0
+last_persist = 0.0
 try:
     with open(DATA_FILE) as f:
         hosts = json.load(f)
@@ -152,7 +156,9 @@ class H(BaseHTTPRequestHandler):
         if path == "/app.js":
             return self.static("app.js", "text/javascript; charset=utf-8")
         if path == "/api/hosts":
+            global last_view
             with lock:
+                last_view = time.time()
                 data = json.dumps({"now": int(time.time()), "hosts": list(hosts.values())})
             return self.send(200, data, "application/json")
         self.send(404, "not found")
@@ -215,10 +221,17 @@ class H(BaseHTTPRequestHandler):
             rep = None
         if not rep:
             return self.send(400, "bad report")
+        global last_persist
+        now = time.time()
         with lock:
+            old = hosts.get(rep["host"])
             hosts[rep["host"]] = rep
-            persist()
-        self.send(204)
+            # Disk only when ports change; "seen" alone isn't worth a write.
+            if not old or old["ports"] != rep["ports"] or now - last_persist > 600:
+                persist()
+                last_persist = now
+            interval = ACTIVE_INTERVAL if now - last_view < IDLE_AFTER else IDLE_INTERVAL
+        self.send(200, json.dumps({"interval": interval}), "application/json")
 
 
 if __name__ == "__main__":
