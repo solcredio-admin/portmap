@@ -160,13 +160,10 @@ function showTicket(anchor, h, p) {
   tk.append(dl);
   tk.hidden = false;
 
+  // Docked at the bottom centre, never beside the key, so it can't cover neighbouring
+  // ports. If the hovered key itself sits in that strip, dock at the top instead.
   const r = anchor.getBoundingClientRect();
-  const w = tk.offsetWidth, hgt = tk.offsetHeight;
-  let x = r.right + 12, y = r.top;
-  if (x + w > innerWidth - 16) x = Math.max(16, r.left - w - 12);
-  if (y + hgt > innerHeight - 16) y = Math.max(16, innerHeight - hgt - 16);
-  tk.style.left = `${x}px`;
-  tk.style.top = `${y}px`;
+  tk.classList.toggle("top", r.bottom > innerHeight - tk.offsetHeight - 40);
 }
 function hideTicket() { $("ticket").hidden = true; }
 

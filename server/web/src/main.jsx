@@ -5,6 +5,7 @@ import { Component } from "react";
 import { createRoot } from "react-dom/client";
 import Scene from "./Scene.jsx";
 import Intro from "./Intro.jsx";
+import Lift from "./Lift.jsx";
 
 // No WebGL (old GPU, disabled, context lost) → render nothing; CSS background remains.
 class Quiet extends Component {
@@ -19,6 +20,7 @@ const mountScene = () => {
   if (sceneMounted) return;
   sceneMounted = true;
   createRoot(document.getElementById("scene")).render(<Quiet><Scene /></Quiet>);
+  createRoot(document.getElementById("lift")).render(<Quiet><Lift /></Quiet>);
 };
 
 const introEl = document.getElementById("intro");

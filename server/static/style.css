@@ -57,6 +57,7 @@ body {
   color: var(--ink);
   font: 500 12px/1.5 var(--mono);
   min-height: 100vh;
+  position: relative;  /* anchors the bottom-corner controls to the page end */
   -webkit-font-smoothing: antialiased;
 }
 button, input { font: inherit; color: inherit; }
@@ -64,6 +65,9 @@ button, input { font: inherit; color: inherit; }
 
 /* WebGL gradient layer (Scene.jsx), fixed behind everything */
 #scene { position: fixed; inset: 0; z-index: -1; pointer-events: none; }
+/* 3D keycap hover layer (Lift.jsx): over the cards, under the bar and hover card */
+#lift { position: fixed; inset: 0; z-index: 4; pointer-events: none; }
+.key.lifted { opacity: 0; transition: none; }
 
 /* ---------- top bar: a floating glass strip ---------- */
 .bar {
@@ -166,16 +170,26 @@ main { display: grid; gap: 40px; padding: 0 16px 140px; max-width: 1240px; margi
 /* ---------- hover card ---------- */
 .ticket {
   position: fixed; z-index: 20; pointer-events: none;
-  width: 320px; max-width: calc(100vw - 32px);
+  left: 50%; bottom: 16px; transform: translateX(-50%);
+  width: min(680px, calc(100vw - 32px));
+  display: grid; grid-template-columns: auto 1fr; align-items: start; gap: 4px 22px;
   background: var(--glass-strong); color: var(--ink);
   border: 1px solid var(--line); border-radius: 18px;
-  padding: 16px 18px 18px;
+  padding: 14px 20px 16px;
   box-shadow: 0 24px 60px rgba(0,0,0,.25);
   backdrop-filter: blur(16px); -webkit-backdrop-filter: blur(16px);
 }
+.ticket.top { bottom: auto; top: 72px; }
+.ticket > .cap { grid-column: 1 / -1; }
+.ticket h3 { grid-row: 2; }
+.ticket dl { grid-row: 2; }
 .ticket[hidden] { display: none; }
-.ticket h3 { margin: 4px 0 12px; font: 300 40px/1 var(--serif); }
-.ticket dl { margin: 0; display: grid; grid-template-columns: 78px 1fr; gap: 6px 10px; padding-top: 12px; border-top: 1px solid var(--line); }
+.ticket h3 { margin: 2px 0 0; font: 300 44px/1 var(--serif); }
+.ticket dl { margin: 0; display: grid; grid-template-columns: 78px 1fr; gap: 5px 10px; padding-left: 20px; border-left: 1px solid var(--line); }
+@media (max-width: 520px) {
+  .ticket { grid-template-columns: 1fr; }
+  .ticket dl { grid-row: auto; padding: 10px 0 0; border-left: 0; border-top: 1px solid var(--line); }
+}
 .ticket dt { color: var(--muted); font-size: 10px; text-transform: uppercase; padding-top: 1px; }
 .ticket dd { margin: 0; font: 400 11.5px/1.45 var(--mono); word-break: break-all; white-space: pre-line; }
 
@@ -210,15 +224,16 @@ main { display: grid; gap: 40px; padding: 0 16px 140px; max-width: 1240px; margi
 .hero h1, .ticket h3, .host-head h2 { font-variant-numeric: lining-nums; }
 
 /* theme toggle, bottom left */
+/* Bottom corners of the page (not the viewport): they scroll with it, never over the ports. */
 .theme-toggle {
-  position: fixed; left: 16px; bottom: 14px; z-index: 6;
+  position: absolute; left: 16px; bottom: 14px; z-index: 6;
   color: var(--muted); padding: 6px 0;
 }
 .theme-toggle:hover, .theme-toggle:focus-visible { color: var(--ink); outline: none; }
 
 /* "Add agent": bottom-right trigger + centered popup */
 .add-agent {
-  position: fixed; right: 16px; bottom: 14px; z-index: 6;
+  position: absolute; right: 16px; bottom: 14px; z-index: 6;
   color: var(--muted); padding: 6px 0;
 }
 .add-agent:hover, .add-agent:focus-visible { color: var(--ink); outline: none; }
