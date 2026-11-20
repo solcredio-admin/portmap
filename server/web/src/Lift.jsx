@@ -8,9 +8,9 @@ import { CanvasTexture, LinearFilter, MathUtils, PlaneGeometry, SRGBColorSpace }
 import { RoundedBoxGeometry } from "three/examples/jsm/geometries/RoundedBoxGeometry.js";
 
 const DEPTH = 14, LIFT = 46, POP = 1.16, TILT = 0.42;
-const STIFF = 420, DAMP = 2 * Math.sqrt(STIFF);  // critically damped spring: eases in and out, no overshoot
-const HOP = 16;          // px of extra lift while travelling between keys
-const RISE = 18, TURN = 16;  // damping rates (1/s) for lift and tilt
+const STIFF = 1500, DAMP = 2 * 0.82 * Math.sqrt(STIFF);  // stiff spring, slightly underdamped: snaps in with a hint of settle
+const HOP = 10;          // px of extra lift while travelling between keys
+const RISE = 28, TURN = 24;  // damping rates (1/s) for lift and tilt
 const GAP_GRACE = 140;  // ms: crossing the gap between keys glides instead of dropping
 const pointer = { x: -1e4, y: -1e4, el: null, lostAt: 0 };
 const RIPPLE_R = 260, PUSH = 8, RISE_PX = 3, GROW = 0.04;  // neighbours: subtle on purpose
@@ -174,7 +174,7 @@ function Cap() {
       s.hidePending = false;
     }
     const speed = Math.hypot(s.vx, s.vy);
-    g.position.z = s.lift * (LIFT + Math.min(speed * 0.025, HOP));  // a gentle hop while travelling
+    g.position.z = s.lift * (LIFT + Math.min(speed * 0.012, HOP));  // a gentle hop while travelling
     g.rotation.x = MathUtils.damp(g.rotation.x, rx * s.lift, TURN, dt);
     g.rotation.y = MathUtils.damp(g.rotation.y, ry * s.lift, TURN, dt);
     g.scale.setScalar(1 + (POP - 1) * s.lift);
