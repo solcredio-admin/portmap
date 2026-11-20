@@ -1,10 +1,8 @@
-# portmap: dashboard + an agent for this same machine.
-#   cp .env.example .env   # fill in ADMIN_PASSWORD and AGENT_TOKEN
-#   docker compose up -d
+# portmap dashboard + an agent for this same machine.
+# All settings live in .env next to this file (see .env.example).
 services:
   portmap:
     image: ghcr.io/solcredio-admin/portmap-server:latest
-    build: ./server
     container_name: portmap
     restart: unless-stopped
     ports:
@@ -24,7 +22,6 @@ services:
 
   portmap-agent:
     image: ghcr.io/solcredio-admin/portmap-agent:latest
-    build: ./agent
     container_name: portmap-agent
     restart: unless-stopped
     network_mode: host
@@ -35,7 +32,7 @@ services:
     read_only: true
     environment:
       SERVER_URL: http://${BIND_ADDR:-127.0.0.1}:${PORTMAP_PORT:-8080}
-      AGENT_TOKEN: ${AGENT_TOKEN}
+      AGENT_TOKEN: ${AGENT_TOKEN:?set AGENT_TOKEN in .env}
       HOST_NAME: ${HOST_NAME:-}
     volumes:
       - /var/run/docker.sock:/var/run/docker.sock:ro

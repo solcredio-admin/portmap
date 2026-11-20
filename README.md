@@ -27,82 +27,93 @@ Both are built for `linux/amd64` and `linux/arm64`. Tags: `latest`, the short co
 
 ---
 
-## 1. Dashboard (main server)
+## Install
 
-Save this as `docker-compose.yml`, change the three `CHANGE-ME` values, then run `docker compose up -d`.
+You need Docker with the Compose plugin. Each machine gets two files in one folder:
 
-```yaml
-services:
-  portmap:
-    image: ghcr.io/solcredio-admin/portmap-server:latest
-    container_name: portmap
-    restart: unless-stopped
-    ports:
-      - "127.0.0.1:8080:8080"          # use your Tailscale/LAN IP instead of 127.0.0.1 to reach it from other machines
-    environment:
-      ADMIN_USER: admin
-      ADMIN_PASSWORD: CHANGE-ME        # 12+ characters
-      AGENT_TOKEN: CHANGE-ME           # openssl rand -hex 32
-      COOKIE_SECURE: "0"               # "1" when served over HTTPS
-    volumes:
-      - portmap-data:/data
-    cap_drop: [ALL]
-    security_opt: [no-new-privileges:true]
-    read_only: true
-    tmpfs: [/tmp]
+- `docker-compose.yml`: what to run (no secrets, never needs editing)
+- `.env`: your settings and secrets (Compose reads it automatically)
 
-  portmap-agent:                       # reports this server's own ports
-    image: ghcr.io/solcredio-admin/portmap-agent:latest
-    container_name: portmap-agent
-    restart: unless-stopped
-    network_mode: host
-    pid: host
-    cap_drop: [ALL]
-    cap_add: [SYS_PTRACE, DAC_READ_SEARCH]
-    security_opt: [no-new-privileges:true, apparmor:unconfined]
-    read_only: true
-    environment:
-      SERVER_URL: http://127.0.0.1:8080  # match the address in "ports" above
-      AGENT_TOKEN: CHANGE-ME             # same as above
-    volumes:
-      - /var/run/docker.sock:/var/run/docker.sock:ro
-      - /etc/os-release:/host/os-release:ro
-    depends_on: [portmap]
+### 1. Dashboard (main server)
 
-volumes:
-  portmap-data:
+```bash
+mkdir -p ~/portmap && cd ~/portmap
+curl -fsSLO https://raw.githubusercontent.com/solcredio-admin/portmap/main/docker-compose.yml
+curl -fsSL https://raw.githubusercontent.com/solcredio-admin/portmap/main/.env.example -o .env
+chmod 600 .env
 ```
 
-Open `http://127.0.0.1:8080` (or the IP you bound to) and sign in. Update with `docker compose pull && docker compose up -d`.
+Edit `.env` and set at least these three:
 
----
-
-## 2. Agent (every other Linux machine)
-
-Save this as `docker-compose.yml` on the machine, change the two `CHANGE-ME` values, then run `docker compose up -d`.
-
-```yaml
-services:
-  portmap-agent:
-    image: ghcr.io/solcredio-admin/portmap-agent:latest
-    container_name: portmap-agent
-    restart: unless-stopped
-    network_mode: host      # see the host's sockets
-    pid: host               # see the host's processes
-    cap_drop: [ALL]
-    cap_add: [SYS_PTRACE, DAC_READ_SEARCH]
-    security_opt: [no-new-privileges:true, apparmor:unconfined]
-    read_only: true
-    environment:
-      SERVER_URL: http://CHANGE-ME:8080   # the dashboard's address
-      AGENT_TOKEN: CHANGE-ME              # same token as the dashboard
-      HOST_NAME: ""                       # optional; defaults to the machine's hostname
-    volumes:
-      - /var/run/docker.sock:/var/run/docker.sock:ro   # optional: shows container names
-      - /etc/os-release:/host/os-release:ro
+```ini
+ADMIN_PASSWORD=a-long-password-you-choose      # 12+ characters
+AGENT_TOKEN=paste-output-of-openssl-rand-hex-32
+BIND_ADDR=100.x.y.z                            # your Tailscale/LAN IP, or 127.0.0.1
 ```
 
-The machine shows up on the dashboard within 15 seconds.
+To generate a token:
+
+```bash
+openssl rand -hex 32
+```
+
+All `.env` settings:
+
+| Variable | Default | What it does |
+|---|---|---|
+| `ADMIN_USER` | `admin` | login username |
+| `ADMIN_PASSWORD` | required | login password, 12+ characters |
+| `AGENT_TOKEN` | required | shared secret agents use to report in |
+| `BIND_ADDR` | `127.0.0.1` | host address the dashboard listens on |
+| `PORTMAP_PORT` | `8080` | host port for the dashboard |
+| `COOKIE_SECURE` | `0` | `1` when served over HTTPS |
+| `TRUST_PROXY` | `0` | `1` only behind a reverse proxy that sets `X-Forwarded-For` |
+| `HOST_NAME` | hostname | name shown for this machine |
+
+Start it:
+
+```bash
+docker compose up -d
+```
+
+Open `http://<BIND_ADDR>:<PORTMAP_PORT>` and sign in. The compose file also runs an agent for this machine, so its card appears within 15 seconds.
+
+### 2. Agent (every other Linux machine)
+
+```bash
+mkdir -p ~/portmap-agent && cd ~/portmap-agent
+curl -fsSLO https://raw.githubusercontent.com/solcredio-admin/portmap/main/agent/docker-compose.yml
+curl -fsSL https://raw.githubusercontent.com/solcredio-admin/portmap/main/agent/.env.example -o .env
+chmod 600 .env
+```
+
+Edit `.env`:
+
+```ini
+SERVER_URL=http://100.x.y.z:8080     # the dashboard, as this machine reaches it
+AGENT_TOKEN=same-token-as-the-dashboard
+HOST_NAME=                           # optional; defaults to the hostname
+```
+
+Start it:
+
+```bash
+docker compose up -d
+```
+
+The machine appears on the dashboard within 15 seconds. If it doesn't, check `docker logs portmap-agent`.
+
+### Update
+
+In either folder:
+
+```bash
+docker compose pull && docker compose up -d
+```
+
+### Prefer a single file?
+
+Compose can't run without the required values: it stops with `set ADMIN_PASSWORD in .env`. If your tool only takes one pasted compose file, replace each `${...}` in `docker-compose.yml` with the real value instead of using `.env`. Keep that file private.
 
 ---
 
