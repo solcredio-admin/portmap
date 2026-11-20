@@ -378,3 +378,15 @@ html.signing-out .bar, html.signing-out .hero, html.signing-out main {
   transition: opacity .45s ease, transform .45s ease;
 }
 .answer .muted { color: var(--muted); }
+
+/* Top bar: icon sign-out; on phones the "Portmap" word becomes the logo mark. */
+.plain.icon { display: grid; place-items: center; padding: 4px; margin: -4px; color: var(--ink); opacity: .8; transition: opacity .2s ease; }
+.plain.icon:hover, .plain.icon:focus-visible { opacity: 1; outline: none; }
+.brand { display: grid; place-items: center; }
+.brand-mark { display: none; height: 30px; width: 30px; margin: -8px 0; }
+:root[data-theme="dark"] .brand-mark { filter: invert(1); }  /* black mark → white */
+@media (prefers-color-scheme: dark) { :root:not([data-theme="light"]) .brand-mark { filter: invert(1); } }
+@media (max-width: 640px) {
+  .brand-text { display: none; }
+  .brand-mark { display: block; }
+}
