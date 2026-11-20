@@ -36,6 +36,25 @@ function ripple() {
   }
 }
 
+// Hit areas reach HIT_PAD past each key, covering the grid gap: the cap starts
+// moving as soon as the pointer leaves a key instead of stalling in the gutter.
+const HIT_PAD = 8;
+function keyAt(x, y) {
+  const hit = document.elementFromPoint(x, y);
+  const direct = hit?.closest(".key");
+  if (direct) return direct;
+  const grid = hit?.closest(".keys") || pointer.el?.closest(".keys");
+  if (!grid) return null;
+  const g = grid.getBoundingClientRect();
+  let best = null, bestD = HIT_PAD;
+  for (const k of grid.children) {  // offset* = layout box, unaffected by the ripple transforms
+    const l = g.left + k.offsetLeft, t = g.top + k.offsetTop;
+    const d = Math.hypot(Math.max(l - x, 0, x - l - k.offsetWidth), Math.max(t - y, 0, y - t - k.offsetHeight));
+    if (d <= bestD) { bestD = d; best = k; }
+  }
+  return best;
+}
+
 const faces = new Map();  // painted labels, reused: re-uploading a texture per switch hitched
 
 // The key's face, painted from the DOM key itself so theme, .local and labels match.
@@ -90,7 +109,7 @@ function Cap() {
 
   useEffect(() => {
     const pick = () => {  // also on scroll: the grid slides under a still mouse
-      const k = document.elementFromPoint(pointer.x, pointer.y)?.closest(".key");
+      const k = keyAt(pointer.x, pointer.y);
       if (k && !k.classList.contains("dim")) { pointer.el = k; pointer.lostAt = 0; }
       else if (pointer.el && !pointer.lostAt) pointer.lostAt = performance.now();
       invalidate();
