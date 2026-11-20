@@ -390,3 +390,8 @@ html.signing-out .bar, html.signing-out .hero, html.signing-out main {
   .brand-text { display: none; }
   .brand-mark { display: block; }
 }
+
+/* No stray highlighting: the UI isn't for selecting. Inputs and the Add-agent commands stay copyable. */
+body { -webkit-user-select: none; user-select: none; -webkit-tap-highlight-color: transparent; }
+input, textarea, .code pre { -webkit-user-select: text; user-select: text; }
+img, svg { -webkit-user-drag: none; user-drag: none; }
