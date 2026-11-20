@@ -145,7 +145,7 @@ function Liquid({ onReady }) {
   );
 }
 
-export default function Intro({ onDone }) {
+export default function Intro({ onLeave, onDone }) {
   const [ready, setReady] = useState(false);
   const [leaving, setLeaving] = useState(false);
 
@@ -165,9 +165,10 @@ export default function Intro({ onDone }) {
   useEffect(() => {
     if (!leaving) return;
     document.getElementById("intro").classList.add("leave");
+    onLeave();
     const t = setTimeout(onDone, LEAVE);
     return () => clearTimeout(t);
-  }, [leaving, onDone]);
+  }, [leaving, onLeave, onDone]);
 
   return (
     <div className="intro-stage">

@@ -135,25 +135,41 @@ class H(BaseHTTPRequestHandler):
         return False
 
     def static(self, name, ctype):
+        # Images and fonts never change between releases often enough to matter; CSS/JS stay fresh.
+        cache = "public, max-age=86400" if ctype.startswith(("image/", "font/")) else "no-store"
         with open(os.path.join(STATIC, name), "rb") as f:
-            self.send(200, f.read(), ctype)
+            self.send(200, f.read(), ctype, cache=cache)
 
-    _bundle = None  # (etag, raw, gzipped): the 1.3 MB app.js, compressed once
+    _bundle = None  # (version, raw, gzipped): the 1.3 MB app.js, compressed once
+
+    @staticmethod
+    def load_bundle():
+        if H._bundle is None:
+            try:
+                with open(os.path.join(STATIC, "app.js"), "rb") as f:
+                    raw = f.read()
+            except OSError:  # not built (bare checkout): pages still render
+                raw = b""
+            H._bundle = (hashlib.sha256(raw).hexdigest()[:12], raw, gzip.compress(raw, 9))
+        return H._bundle
 
     def bundle(self):
-        """app.js with gzip + ETag: a revisit costs a 304, not a re-download."""
-        if H._bundle is None:
-            with open(os.path.join(STATIC, "app.js"), "rb") as f:
-                raw = f.read()
-            H._bundle = ('"%s"' % hashlib.sha256(raw).hexdigest()[:16], raw, gzip.compress(raw, 9))
-        etag, raw, gz = H._bundle
-        hdrs = [("ETag", etag), ("Vary", "Accept-Encoding")]
-        cache = "private, no-cache"  # revalidate every time, behind the login
-        if self.headers.get("If-None-Match") == etag:
-            return self.send(304, headers=hdrs, cache=cache)
+        """app.js, gzipped. Pages link /app.js?v=<hash>, so it caches forever and the
+        login page can prefetch it: signing in then starts the intro with no download."""
+        ver, raw, gz = self.load_bundle()
+        fresh = parse_qs(urlparse(self.path).query).get("v", [""])[0] == ver
+        cache = "public, max-age=31536000, immutable" if fresh else "no-cache"
+        hdrs = [("Vary", "Accept-Encoding")]
         if "gzip" in self.headers.get("Accept-Encoding", ""):
             return self.send(200, gz, "text/javascript; charset=utf-8", hdrs + [("Content-Encoding", "gzip")], cache)
         self.send(200, raw, "text/javascript; charset=utf-8", hdrs, cache)
+
+    def page(self, name, **subs):
+        with open(os.path.join(STATIC, name)) as f:
+            html = f.read().replace("{{V}}", self.load_bundle()[0])
+        for k, v in subs.items():
+            html = html.replace("{{%s}}" % k, v)
+        self.send(200, html, "text/html; charset=utf-8")
 
     def body(self, limit):
         n = int(self.headers.get("Content-Length") or 0)
@@ -167,22 +183,20 @@ class H(BaseHTTPRequestHandler):
             return self.send(200, "ok")
         if path in PUBLIC:
             return self.static(*PUBLIC[path])
+        if path == "/app.js":  # public on purpose: library code only, no data or secrets
+            return self.bundle()
         if path == "/login":
             if self.authed():
                 return self.send(303, headers=[("Location", "/")])
-            with open(os.path.join(STATIC, "login.html")) as f:
-                html = f.read()
             err = parse_qs(urlparse(self.path).query).get("e", [""])[0]
             msg = {"1": "Wrong credentials.", "2": "Too many attempts. Try again in 15 minutes."}.get(err, "")
-            return self.send(200, html.replace("{{ERR}}", msg), "text/html; charset=utf-8")
+            return self.page("login.html", ERR=msg)
         if not self.authed():
             if path.startswith("/api/"):
                 return self.send(401, "unauthorized")
             return self.send(303, headers=[("Location", "/login")])
         if path == "/":
-            return self.static("index.html", "text/html; charset=utf-8")
-        if path == "/app.js":
-            return self.bundle()
+            return self.page("index.html")
         if path == "/api/agent-setup":  # signed-in admin only; fills the "Add agent" popup
             return self.send(200, json.dumps({"token": AGENT_TOKEN}), "application/json")
         if path == "/api/hosts":
@@ -265,5 +279,6 @@ class H(BaseHTTPRequestHandler):
 
 
 if __name__ == "__main__":
+    H.load_bundle()  # compress once at startup, not on the first visitor's request
     print(f"portmap listening on :{PORT}", flush=True)
     ThreadingHTTPServer(("0.0.0.0", PORT), H).serve_forever()

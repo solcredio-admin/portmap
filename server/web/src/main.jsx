@@ -14,7 +14,12 @@ class Quiet extends Component {
   render() { return this.state.failed ? null : this.props.children; }
 }
 
-createRoot(document.getElementById("scene")).render(<Quiet><Scene /></Quiet>);
+let sceneMounted = false;
+const mountScene = () => {
+  if (sceneMounted) return;
+  sceneMounted = true;
+  createRoot(document.getElementById("scene")).render(<Quiet><Scene /></Quiet>);
+};
 
 const introEl = document.getElementById("intro");
 if (location.search) history.replaceState(null, "", location.pathname);  // drop ?intro: a reload skips it
@@ -26,8 +31,12 @@ if (document.documentElement.classList.contains("intro")) {
     root.unmount();  // frees the intro's WebGL context
     introEl.remove();
   };
+  // The gradient's shader compile blocks the main thread; doing it during the intro
+  // made the liquid logo stutter. Start it when the zoom-out begins: that is a CSS
+  // transform, which the compositor keeps smooth even while the main thread works.
   const root = createRoot(introEl);
-  root.render(<Quiet onFail={() => setTimeout(done)}><Intro onDone={done} /></Quiet>);
+  root.render(<Quiet onFail={() => setTimeout(() => { mountScene(); done(); })}><Intro onLeave={mountScene} onDone={done} /></Quiet>);
 } else {
   introEl.remove();
+  mountScene();
 }
