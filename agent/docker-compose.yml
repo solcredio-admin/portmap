@@ -1,5 +1,6 @@
 # portmap agent: run on every other Linux machine.
 # Settings live in .env next to this file (see .env.example).
+# Keep in sync with AGENT_COMPOSE in server/static/app.js (the dashboard's "Add agent" panel).
 services:
   portmap-agent:
     image: ghcr.io/solcredio-admin/portmap-agent:latest

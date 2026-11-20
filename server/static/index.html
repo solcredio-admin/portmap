@@ -21,6 +21,15 @@
 </section>
 <main id="cards"></main>
 <div class="ticket" id="ticket" hidden role="tooltip"></div>
+<button class="plain add-agent" id="add-agent" type="button" aria-haspopup="dialog">+ Add agent</button>
+<dialog class="setup" id="setup" aria-labelledby="setup-title">
+  <div class="setup-head">
+    <span class="cap">Add a machine</span>
+    <button class="plain" id="setup-close" type="button" aria-label="Close">Close</button>
+  </div>
+  <h2 id="setup-title">Three steps on the new machine.</h2>
+  <div id="setup-steps"></div>
+</dialog>
 <script src="/app.js"></script>
 </body>
 </html>

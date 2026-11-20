@@ -192,6 +192,93 @@ $("hide-local").addEventListener("click", () => {
 });
 addEventListener("scroll", hideTicket, { passive: true });
 
+// ---------- "Add agent" panel ----------
+// Keep in sync with agent/docker-compose.yml.
+const AGENT_COMPOSE = `# portmap agent: run on every other Linux machine.
+# Settings live in .env next to this file (see .env.example).
+services:
+  portmap-agent:
+    image: ghcr.io/solcredio-admin/portmap-agent:latest
+    container_name: portmap-agent
+    restart: unless-stopped
+    mem_limit: 64m
+    cpus: 0.25
+    pids_limit: 16
+    logging: {driver: json-file, options: {max-size: 1m, max-file: "2"}}
+    network_mode: host      # see the host's sockets
+    pid: host               # see the host's processes
+    cap_drop: [ALL]
+    cap_add: [SYS_PTRACE, DAC_READ_SEARCH]
+    security_opt: [no-new-privileges:true, apparmor:unconfined]
+    read_only: true
+    environment:
+      SERVER_URL: \${SERVER_URL:?set SERVER_URL in .env}
+      AGENT_TOKEN: \${AGENT_TOKEN:?set AGENT_TOKEN in .env}
+      HOST_NAME: \${HOST_NAME:-}
+      SEND_CMDLINE: \${SEND_CMDLINE:-1}
+    volumes:
+      - /var/run/docker.sock:/var/run/docker.sock:ro   # optional: shows container names. Remove to skip Docker.
+      - /etc/os-release:/host/os-release:ro
+`;
+
+function codeBlock(text) {
+  const wrap = el("div", "code");
+  const pre = el("pre", null, text);
+  const btn = el("button", "plain copy", "Copy");
+  btn.type = "button";
+  btn.addEventListener("click", async () => {
+    try {
+      await navigator.clipboard.writeText(text);
+    } catch {
+      // Clipboard API needs HTTPS or localhost; fall back to selecting the text.
+      const r = document.createRange(); r.selectNodeContents(pre);
+      const sel = getSelection(); sel.removeAllRanges(); sel.addRange(r);
+      document.execCommand("copy");
+    }
+    btn.textContent = "Copied";
+    setTimeout(() => (btn.textContent = "Copy"), 1500);
+  });
+  wrap.append(pre, btn);
+  return wrap;
+}
+
+function step(n, title, note, ...blocks) {
+  const s = el("section", "step");
+  s.append(el("div", "cap", `Step ${n}`), el("h3", null, title));
+  if (note) s.append(el("p", null, note));
+  s.append(...blocks);
+  return s;
+}
+
+async function openSetup() {
+  let token = "paste-AGENT_TOKEN-from-the-server";
+  try {
+    const r = await fetch("/api/agent-setup", { credentials: "same-origin" });
+    if (r.ok) token = (await r.json()).token;
+  } catch {}
+  const env = `# The portmap dashboard, as this machine reaches it
+SERVER_URL=${location.origin}
+# Shared secret; must match the dashboard's AGENT_TOKEN
+AGENT_TOKEN=${token}
+# Optional: name on the dashboard (defaults to the hostname)
+HOST_NAME=
+`;
+  $("setup-steps").replaceChildren(
+    step(1, "Create the compose file", "Make a folder, open the editor, paste this in, then save (Ctrl+O, Enter, Ctrl+X).",
+      codeBlock("mkdir -p ~/portmap-agent && cd ~/portmap-agent\nnano compose.yaml"), codeBlock(AGENT_COMPOSE)),
+    step(2, "Point it at this server", "SERVER_URL is this dashboard's address. If the new machine reaches it differently (another IP or hostname), change it.",
+      codeBlock("nano .env"), codeBlock(env), codeBlock("chmod 600 .env")),
+    step(3, "Start it", "The machine shows up here within 15 seconds. If not, check the logs.",
+      codeBlock("docker compose up -d"), codeBlock("docker logs portmap-agent")),
+  );
+  hideTicket();
+  $("setup").showModal();
+}
+
+$("add-agent").addEventListener("click", openSetup);
+$("setup-close").addEventListener("click", () => $("setup").close());
+$("setup").addEventListener("click", (e) => { if (e.target === $("setup")) $("setup").close(); });
+
 // Poll only while the tab is visible; refresh as soon as it comes back.
 let timer = null;
 function startPolling() { if (!timer) { load(); timer = setInterval(load, 10000); } }

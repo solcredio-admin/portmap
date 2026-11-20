@@ -83,6 +83,8 @@ Open `http://<BIND_ADDR>:<PORTMAP_PORT>` and sign in. The compose file also runs
 
 ### 2. Agent (every other Linux machine)
 
+Shortcut: click **+ Add agent** at the bottom right of the dashboard. It shows these same steps with your server address and token already filled in, each with a Copy button.
+
 ```bash
 mkdir -p ~/portmap-agent && cd ~/portmap-agent
 curl -fsSLO https://raw.githubusercontent.com/solcredio-admin/portmap/main/agent/docker-compose.yml

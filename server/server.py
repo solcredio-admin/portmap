@@ -165,6 +165,8 @@ class H(BaseHTTPRequestHandler):
             return self.static("index.html", "text/html; charset=utf-8")
         if path == "/app.js":
             return self.static("app.js", "text/javascript; charset=utf-8")
+        if path == "/api/agent-setup":  # signed-in admin only; fills the "Add agent" popup
+            return self.send(200, json.dumps({"token": AGENT_TOKEN}), "application/json")
         if path == "/api/hosts":
             global last_view
             with lock:
