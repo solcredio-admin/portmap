@@ -2,7 +2,7 @@ name: images
 
 on:
   push:
-    branches: [main]
+    branches: [main, proxy]
     tags: ["v*"]
   workflow_dispatch:
 
@@ -31,6 +31,7 @@ jobs:
           images: ghcr.io/${{ github.repository_owner }}/portmap-${{ matrix.component }}
           tags: |
             type=raw,value=latest,enable={{is_default_branch}}
+            type=ref,event=branch,enable=${{ github.ref_name != 'main' }}
             type=semver,pattern={{version}}
             type=sha,format=short
       - uses: docker/build-push-action@v6

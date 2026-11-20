@@ -176,6 +176,7 @@ async function load() {
     if (r.status === 401) { location.href = "/login"; return; }
     data = await r.json();
     render();
+    if (!window.pmLoaded) { window.pmLoaded = true; dispatchEvent(new Event("pm:loaded")); }  // ends the intro
   } catch (e) {
     $("probe-out").textContent = "Connection lost — retrying";
   }

@@ -4,6 +4,8 @@
   let saved = null;
   try { saved = localStorage.getItem("pm-theme"); } catch {}
   if (saved === "light" || saved === "dark") root.dataset.theme = saved;
+  // Just signed in (/?intro): show the loading screen from the very first paint.
+  if (/[?&]intro\b/.test(location.search) && !matchMedia("(prefers-reduced-motion: reduce)").matches) root.classList.add("intro");
 
   const current = () => root.dataset.theme || (matchMedia("(prefers-color-scheme: dark)").matches ? "dark" : "light");
 

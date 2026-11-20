@@ -1,1 +1,5 @@
 .env
+
+# built by server/web (npm run build)
+server/static/app.js
+server/static/app.js.gz

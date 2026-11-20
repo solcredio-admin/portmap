@@ -1,5 +1,5 @@
 """Portmap server: login-protected dashboard + agent ingest. Stdlib only."""
-import hashlib, hmac, json, os, re, secrets, threading, time
+import gzip, hashlib, hmac, json, os, re, secrets, threading, time
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from urllib.parse import parse_qs, urlparse
 
@@ -45,6 +45,7 @@ PUBLIC = {
     "/favicon.png": ("favicon.png", "image/png"),
     "/icon.png": ("icon.png", "image/png"),
     "/apple-touch-icon.png": ("apple-touch-icon.png", "image/png"),
+    "/logo.png": ("logo.png", "image/png"),
     "/fonts/cormorant-garamond.woff2": ("fonts/cormorant-garamond.woff2", "font/woff2"),
     "/fonts/roboto-mono.woff2": ("fonts/roboto-mono.woff2", "font/woff2"),
 }
@@ -104,7 +105,7 @@ class H(BaseHTTPRequestHandler):
             return self.headers["X-Forwarded-For"].split(",")[0].strip()
         return self.client_address[0]
 
-    def send(self, code, body=b"", ctype="text/plain; charset=utf-8", headers=()):
+    def send(self, code, body=b"", ctype="text/plain; charset=utf-8", headers=(), cache="no-store"):
         if isinstance(body, str):
             body = body.encode()
         self.send_response(code)
@@ -115,7 +116,7 @@ class H(BaseHTTPRequestHandler):
         self.send_header("X-Content-Type-Options", "nosniff")
         self.send_header("X-Frame-Options", "DENY")
         self.send_header("Referrer-Policy", "no-referrer")
-        self.send_header("Cache-Control", "no-store")
+        self.send_header("Cache-Control", cache)
         for k, v in headers:
             self.send_header(k, v)
         self.end_headers()
@@ -136,6 +137,23 @@ class H(BaseHTTPRequestHandler):
     def static(self, name, ctype):
         with open(os.path.join(STATIC, name), "rb") as f:
             self.send(200, f.read(), ctype)
+
+    _bundle = None  # (etag, raw, gzipped): the 1.3 MB app.js, compressed once
+
+    def bundle(self):
+        """app.js with gzip + ETag: a revisit costs a 304, not a re-download."""
+        if H._bundle is None:
+            with open(os.path.join(STATIC, "app.js"), "rb") as f:
+                raw = f.read()
+            H._bundle = ('"%s"' % hashlib.sha256(raw).hexdigest()[:16], raw, gzip.compress(raw, 9))
+        etag, raw, gz = H._bundle
+        hdrs = [("ETag", etag), ("Vary", "Accept-Encoding")]
+        cache = "private, no-cache"  # revalidate every time, behind the login
+        if self.headers.get("If-None-Match") == etag:
+            return self.send(304, headers=hdrs, cache=cache)
+        if "gzip" in self.headers.get("Accept-Encoding", ""):
+            return self.send(200, gz, "text/javascript; charset=utf-8", hdrs + [("Content-Encoding", "gzip")], cache)
+        self.send(200, raw, "text/javascript; charset=utf-8", hdrs, cache)
 
     def body(self, limit):
         n = int(self.headers.get("Content-Length") or 0)
@@ -164,7 +182,7 @@ class H(BaseHTTPRequestHandler):
         if path == "/":
             return self.static("index.html", "text/html; charset=utf-8")
         if path == "/app.js":
-            return self.static("app.js", "text/javascript; charset=utf-8")
+            return self.bundle()
         if path == "/api/agent-setup":  # signed-in admin only; fills the "Add agent" popup
             return self.send(200, json.dumps({"token": AGENT_TOKEN}), "application/json")
         if path == "/api/hosts":
@@ -218,7 +236,7 @@ class H(BaseHTTPRequestHandler):
         cookie = f"pm_session={token}; Max-Age={SESSION_TTL}; Path=/; HttpOnly; SameSite=Strict"
         if COOKIE_SECURE:
             cookie += "; Secure"
-        self.send(303, headers=[("Location", "/"), ("Set-Cookie", cookie)])
+        self.send(303, headers=[("Location", "/?intro"), ("Set-Cookie", cookie)])  # ?intro: play the loading animation once
 
     def report(self):
         auth = self.headers.get("Authorization", "")
