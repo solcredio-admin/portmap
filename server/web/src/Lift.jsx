@@ -7,8 +7,11 @@ import { useEffect, useMemo, useRef } from "react";
 import { CanvasTexture, LinearFilter, MathUtils, PlaneGeometry, SRGBColorSpace } from "three";
 import { RoundedBoxGeometry } from "three/examples/jsm/geometries/RoundedBoxGeometry.js";
 
-const DEPTH = 14, LIFT = 46, POP = 1.16, TILT = 0.42, EASE = 12;
-const pointer = { x: -1e4, y: -1e4, el: null };
+const DEPTH = 14, LIFT = 46, POP = 1.16, TILT = 0.42;
+const GLIDE = 30, RISE = 18, TURN = 16;  // damping rates (1/s): higher = snappier
+const GAP_GRACE = 140;  // ms: crossing the gap between keys glides instead of dropping
+const pointer = { x: -1e4, y: -1e4, el: null, lostAt: 0 };
+const faces = new Map();  // painted labels, reused: re-uploading a texture per switch hitched
 
 // The key's face, painted from the DOM key itself so theme, .local and labels match.
 function paintFace(el, w, h) {
@@ -58,11 +61,12 @@ function Cap() {
   useEffect(() => {
     const pick = () => {  // also on scroll: the grid slides under a still mouse
       const k = document.elementFromPoint(pointer.x, pointer.y)?.closest(".key");
-      pointer.el = k && !k.classList.contains("dim") ? k : null;
+      if (k && !k.classList.contains("dim")) { pointer.el = k; pointer.lostAt = 0; }
+      else if (pointer.el && !pointer.lostAt) pointer.lostAt = performance.now();
       invalidate();
     };
     const move = (e) => { pointer.x = e.clientX; pointer.y = e.clientY; pick(); };
-    const out = (e) => { if (!e.relatedTarget) { pointer.el = null; invalidate(); } };
+    const out = (e) => { if (!e.relatedTarget) { pointer.el = null; pointer.lostAt = 0; invalidate(); } };
     const wake = pick;
     document.addEventListener("pointermove", move, { passive: true });
     document.addEventListener("pointerout", out);
@@ -76,6 +80,7 @@ function Cap() {
 
   useFrame((_, dt) => {
     const s = st.current, g = group.current;
+    if (pointer.lostAt && performance.now() - pointer.lostAt > GAP_GRACE) { pointer.el = null; pointer.lostAt = 0; }
     let el = pointer.el;
     if (el && !el.isConnected) el = pointer.el = null;  // grid was rebuilt by a poll
 
@@ -92,16 +97,21 @@ function Cap() {
           face.current.geometry = new PlaneGeometry(w, h);
           s.w = w; s.h = h;
         }
-        const { tex, edge } = paintFace(el, w, h);
-        s.tex?.dispose();
-        s.tex = tex;
+        const key = `${el.className.replace(" lifted", "")}|${el.textContent}|${w}x${h}`;
+        let painted = faces.get(key);
+        if (!painted) {
+          if (faces.size > 200) { faces.forEach((f) => f.tex.dispose()); faces.clear(); }
+          painted = paintFace(el, w, h);
+          faces.set(key, painted);
+        }
+        const { tex, edge } = painted;
         face.current.material.map = tex;
         face.current.material.needsUpdate = true;
         body.current.material.color.set(edge);
         if (s.lift < 0.02) {  // first lift: start exactly on the DOM key, no glide
           g.position.set(r.left + w / 2 - innerWidth / 2, innerHeight / 2 - r.top - h / 2, 0);
         }
-        el.classList.add("lifted");
+        s.hidePending = true;  // hide the DOM key once the cap is over it
       }
       s.el = el;
     }
@@ -114,17 +124,21 @@ function Cap() {
       rx = MathUtils.clamp((pointer.y - cy) / (r.height / 2), -1, 1) * TILT;
       ry = MathUtils.clamp((pointer.x - cx) / (r.width / 2), -1, 1) * TILT;
     }
-    s.lift = MathUtils.damp(s.lift, s.el ? 1 : 0, EASE, dt);
-    g.position.x = MathUtils.damp(g.position.x, tx, EASE * 1.5, dt);
-    g.position.y = MathUtils.damp(g.position.y, ty, EASE * 1.5, dt);
+    s.lift = MathUtils.damp(s.lift, s.el ? 1 : 0, RISE, dt);
+    g.position.x = MathUtils.damp(g.position.x, tx, GLIDE, dt);
+    g.position.y = MathUtils.damp(g.position.y, ty, GLIDE, dt);
+    if (s.hidePending && s.el && Math.abs(g.position.x - tx) + Math.abs(g.position.y - ty) < 8) {
+      s.el.classList.add("lifted");
+      s.hidePending = false;
+    }
     g.position.z = s.lift * LIFT;
-    g.rotation.x = MathUtils.damp(g.rotation.x, rx * s.lift, EASE, dt);
-    g.rotation.y = MathUtils.damp(g.rotation.y, ry * s.lift, EASE, dt);
+    g.rotation.x = MathUtils.damp(g.rotation.x, rx * s.lift, TURN, dt);
+    g.rotation.y = MathUtils.damp(g.rotation.y, ry * s.lift, TURN, dt);
     g.scale.setScalar(1 + (POP - 1) * s.lift);
     g.visible = s.lift > 0.01;
     light.current.position.set(pointer.x - innerWidth / 2, innerHeight / 2 - pointer.y, 160);
 
-    const moving = Math.abs(g.position.x - tx) + Math.abs(g.position.y - ty) > 0.3
+    const moving = pointer.lostAt > 0 || s.hidePending || Math.abs(g.position.x - tx) + Math.abs(g.position.y - ty) > 0.3
       || Math.abs(s.lift - (s.el ? 1 : 0)) > 0.005
       || Math.abs(g.rotation.x - rx * s.lift) + Math.abs(g.rotation.y - ry * s.lift) > 0.002;
     if (moving) invalidate();
