@@ -83,31 +83,71 @@ Open `http://<BIND_ADDR>:<PORTMAP_PORT>` and sign in. The compose file also runs
 
 ### 2. Agent (every other Linux machine)
 
-Shortcut: click **+ Add agent** at the bottom right of the dashboard. It shows these same steps with your server address and token already filled in, each with a Copy button.
+The same three steps as the dashboard's **+ Add agent** popup (bottom right), which fills in your server address and token for you, each with a Copy button.
+
+**Step 1: create the compose file.** Make a folder, open the editor, paste this in, then save (Ctrl+O, Enter, Ctrl+X).
 
 ```bash
 mkdir -p ~/portmap-agent && cd ~/portmap-agent
-curl -fsSLO https://raw.githubusercontent.com/solcredio-admin/portmap/main/agent/docker-compose.yml
-curl -fsSL https://raw.githubusercontent.com/solcredio-admin/portmap/main/agent/.env.example -o .env
+nano compose.yaml
+```
+
+```yaml
+# portmap agent: run on every other Linux machine.
+# Settings live in .env next to this file (see .env.example).
+services:
+  portmap-agent:
+    image: ghcr.io/solcredio-admin/portmap-agent:latest
+    container_name: portmap-agent
+    restart: unless-stopped
+    mem_limit: 64m
+    cpus: 0.25
+    pids_limit: 16
+    logging: {driver: json-file, options: {max-size: 1m, max-file: "2"}}
+    network_mode: host      # see the host's sockets
+    pid: host               # see the host's processes
+    cap_drop: [ALL]
+    cap_add: [SYS_PTRACE, DAC_READ_SEARCH]
+    security_opt: [no-new-privileges:true, apparmor:unconfined]
+    read_only: true
+    environment:
+      SERVER_URL: ${SERVER_URL:?set SERVER_URL in .env}
+      AGENT_TOKEN: ${AGENT_TOKEN:?set AGENT_TOKEN in .env}
+      HOST_NAME: ${HOST_NAME:-}
+      SEND_CMDLINE: ${SEND_CMDLINE:-1}
+    volumes:
+      - /var/run/docker.sock:/var/run/docker.sock:ro   # optional: shows container names. Remove to skip Docker.
+      - /etc/os-release:/host/os-release:ro
+```
+
+**Step 2: point it at your server.** `SERVER_URL` is the dashboard's address as this machine reaches it; `AGENT_TOKEN` must match the dashboard's.
+
+```bash
+nano .env
+```
+
+```ini
+# The portmap dashboard, as this machine reaches it
+SERVER_URL=https://portmap.example.com
+# Shared secret; must match the dashboard's AGENT_TOKEN
+AGENT_TOKEN=paste-the-dashboards-token
+# Optional: name on the dashboard (defaults to the hostname)
+HOST_NAME=
+```
+
+```bash
 chmod 600 .env
 ```
 
-Edit `.env`:
-
-```ini
-SERVER_URL=http://100.x.y.z:8080     # the dashboard, as this machine reaches it
-AGENT_TOKEN=same-token-as-the-dashboard
-HOST_NAME=                           # optional; defaults to the hostname
-SEND_CMDLINE=1                       # optional; 0 = process names only
-```
-
-Start it:
+**Step 3: start it.** The machine shows up on the dashboard within 15 seconds. If not, check the logs.
 
 ```bash
 docker compose up -d
 ```
 
-The machine appears on the dashboard within 15 seconds. If it doesn't, check `docker logs portmap-agent`.
+```bash
+docker logs portmap-agent
+```
 
 ### Update
 
